@@ -1,85 +1,37 @@
-package com.example.gpslog;
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-import android.os.Bundle;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.Toast;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.room.Room;
-import org.osmdroid.config.Configuration;
-import org.osmdroid.util.GeoPoint;
-import org.osmdroid.views.MapView;
-import org.osmdroid.views.overlay.Marker;
-import org.osmdroid.events.MapEventsReceiver;
-import org.osmdroid.views.overlay.MapEventsOverlay;
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp">
+        <EditText
+            android:id="@+id/etLocationName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="地点の名前を入力"/>
+        <Button
+            android:id="@+id/btnSaveLocation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="登録"/>
+    </LinearLayout>
 
-public class MapActivity extends AppCompatActivity {
-    private MapView mapView;
-        private Marker currentMarker;
-            private AppDatabase db;
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="地図を長押ししてピンを立ててください"
+        android:textAlignment="center"
+        android:padding="4dp"
+        android:background="#EEEEEE"/>
 
-                @Override
-                    protected void onCreate(Bundle savedInstanceState) {
-                            super.onCreate(savedInstanceState);
-                                    Configuration.getInstance().setUserAgentValue(getPackageName());
-                                            setContentView(R.layout.activity_map);
-
-                                                    mapView = findViewById(R.id.mapView);
-                                                            mapView.setMultiTouchControls(true);
-                                                                    
-                                                                            db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-
-                                                                                    EditText etLocationName = findViewById(R.id.etLocationName);
-                                                                                            Button btnSaveLocation = findViewById(R.id.btnSaveLocation);
-
-                                                                                                    double lat = getIntent().getDoubleExtra("LAT", 35.6895);
-                                                                                                            double lon = getIntent().getDoubleExtra("LON", 139.6917);
-                                                                                                                    GeoPoint startPoint = new GeoPoint(lat, lon);
-
-                                                                                                                            mapView.getController().setZoom(15.0);
-                                                                                                                                    mapView.getController().setCenter(startPoint);
-
-                                                                                                                                            MapEventsReceiver mReceive = new MapEventsReceiver() {
-                                                                                                                                                        @Override
-                                                                                                                                                                    public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
-                                                                                                                                                                                @Override
-                                                                                                                                                                                            public boolean longPressHelper(GeoPoint p) {
-                                                                                                                                                                                                            if(currentMarker != null) mapView.getOverlays().remove(currentMarker);
-                                                                                                                                                                                                                            currentMarker = new Marker(mapView);
-                                                                                                                                                                                                                                            currentMarker.setPosition(p);
-                                                                                                                                                                                                                                                            currentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-                                                                                                                                                                                                                                                                            mapView.getOverlays().add(currentMarker);
-                                                                                                                                                                                                                                                                                            mapView.invalidate();
-                                                                                                                                                                                                                                                                                                            return true;
-                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                };
-                                                                                                                                                                                                                                                                                                                                        mapView.getOverlays().add(new MapEventsOverlay(mReceive));
-
-                                                                                                                                                                                                                                                                                                                                                btnSaveLocation.setOnClickListener(v -> {
-                                                                                                                                                                                                                                                                                                                                                            String name = etLocationName.getText().toString();
-                                                                                                                                                                                                                                                                                                                                                                        if(name.isEmpty()) {
-                                                                                                                                                                                                                                                                                                                                                                                        Toast.makeText(this, "名前を入力してください", Toast.LENGTH_SHORT).show();
-                                                                                                                                                                                                                                                                                                                                                                                                        return;
-                                                                                                                                                                                                                                                                                                                                                                                                                    }
-                                                                                                                                                                                                                                                                                                                                                                                                                                if(currentMarker == null) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                Toast.makeText(this, "地図を長押しして場所を指定してください", Toast.LENGTH_SHORT).show();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                return;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    LocationEntity entity = new LocationEntity();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                entity.name = name;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            entity.latitude = currentMarker.getPosition().getLatitude();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        entity.longitude = currentMarker.getPosition().getLongitude();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                db.locationDao().insert(entity);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            Toast.makeText(this, name + " を登録しました！", Toast.LENGTH_SHORT).show();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        finish(); 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                });
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @Override
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                protected void onResume() { super.onResume(); mapView.onResume(); }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @Override
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        protected void onPause() { super.onPause(); mapView.onPause(); }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+    <org.osmdroid.views.MapView
+        android:id="@+id/mapView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+</LinearLayout>
