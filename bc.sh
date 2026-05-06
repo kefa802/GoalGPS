@@ -10,9 +10,12 @@ gradle :app:assembleDebug -Dorg.gradle.java.home=$JAVA_HOME
 if [ $? -eq 0 ]; then
     echo "✅ Success! Saving to GitHub..."
     git add .
-    git commit -m "GoalGPS update: $(date +'%Y-%m-%d %H:%M:%S')"
+    git commit -m "GoalGPS update: v1.0.1 - $(date +'%Y-%m-%d %H:%M:%S')"
     git push origin main
-    echo "🎉 Done! APK is ready."
+    
+    # 一番手前にアプリをコピーします
+    cp app/build/outputs/apk/debug/app-debug.apk ./GoalGPS_latest.apk
+    echo "🎉 Done! [GoalGPS_latest.apk] をファイル一覧の直下からダウンロードしてください！"
 else
     echo "❌ Build Failed. Check the errors above."
 fi
