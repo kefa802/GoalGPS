@@ -1,33 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-
     <org.osmdroid.views.MapView
         android:id="@+id/map"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
-
     <EditText
         android:id="@+id/etLocationName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="場所の名前を入力"
-        android:padding="12dp"
-        android:background="#CCFFFFFF"
-        android:layout_alignParentTop="true" />
-
+        android:padding="16dp"
+        android:background="#DDFFFFFF"
+        android:layout_gravity="top" />
     <Button
         android:id="@+id/btnJumpToCurrent"
         android:layout_width="70dp"
         android:layout_height="70dp"
         android:text="◎"
         android:textSize="24sp"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
-        android:layout_margin="30dp"
+        android:layout_gravity="bottom|right"
+        android:layout_margin="32dp"
         android:backgroundTint="#FFFFFF"
         android:textColor="#2196F3"
-        android:elevation="10dp" />
-
-</RelativeLayout>
+        android:elevation="20dp" />
+</FrameLayout>
