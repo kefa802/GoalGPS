@@ -1,4 +1,4 @@
-=== Build Started at Wed May  6 15:00:41 UTC 2026 ===
+=== Build Started at Wed May  6 15:09:04 UTC 2026 ===
 🎯 Using Java: /usr/local/sdkman/candidates/java/21.0.10-ms
 📱 Using SDK: /workspaces/GoalGPS/my-android-sdk
 📦 必要なSDKコンポーネントをインストール中（少し時間がかかります）...
@@ -45,22 +45,22 @@ warning: [options] To suppress warnings about obsolete options, use -Xlint:-opti
 > Task :app:mergeDebugAssets UP-TO-DATE
 > Task :app:compressDebugAssets UP-TO-DATE
 > Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
 > Task :app:checkDebugDuplicateClasses UP-TO-DATE
 > Task :app:desugarDebugFileDependencies UP-TO-DATE
 > Task :app:mergeDebugStartupProfile UP-TO-DATE
 > Task :app:mergeExtDexDebug UP-TO-DATE
-> Task :app:mergeLibDexDebug
+> Task :app:mergeLibDexDebug UP-TO-DATE
 > Task :app:dexBuilderDebug
-> Task :app:mergeDebugJavaResource
 > Task :app:mergeDebugJniLibFolders UP-TO-DATE
-> Task :app:mergeProjectDexDebug
 > Task :app:mergeDebugNativeLibs NO-SOURCE
 > Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeProjectDexDebug
 > Task :app:packageDebug
-> Task :app:createDebugApkListingFileRedirect
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 > Task :app:assembleDebug
 
 [Incubating] Problems report is available at: file:///workspaces/GoalGPS/build/reports/problems/problems-report.html
@@ -71,7 +71,7 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.4.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 7s
-33 actionable tasks: 7 executed, 26 up-to-date
+BUILD SUCCESSFUL in 2s
+33 actionable tasks: 4 executed, 29 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.4.0/userguide/configuration_cache_enabling.html
 ✅ SUCCESS! ついに完全決着です！
