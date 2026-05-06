@@ -1,84 +1,95 @@
 package com.example.gpslog;
 
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.widget.Button;
-import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.room.Room;
-import org.osmdroid.config.Configuration;
-import org.osmdroid.util.GeoPoint;
-import org.osmdroid.views.MapView;
-import org.osmdroid.views.overlay.Marker;
-import org.osmdroid.events.MapEventsReceiver;
-import org.osmdroid.views.overlay.MapEventsOverlay;
+import androidx.core.app.ActivityCompat;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 
-public class MapActivity extends AppCompatActivity {
-    private MapView mapView;
-    private Marker currentMarker;
-    private AppDatabase db;
+public class MainActivity extends AppCompatActivity {
+
+    private FusedLocationProviderClient fusedLocationClient;
+    private TextView tvStatus;
+    private double currentLat = 0.0;
+    private double currentLon = 0.0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Configuration.getInstance().setUserAgentValue(getPackageName());
-        setContentView(R.layout.activity_map);
+        setContentView(R.layout.activity_main);
 
-        mapView = findViewById(R.id.mapView);
-        mapView.setMultiTouchControls(true);
-        
-        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
+        tvStatus = findViewById(R.id.tvStatus);
+        Button btnStart = findViewById(R.id.btnStart);
+        Button btnStop = findViewById(R.id.btnStop);
+        Button btnRegister = findViewById(R.id.btnRegister);
+        TextView tvVersion = findViewById(R.id.tvVersion);
 
-        EditText etLocationName = findViewById(R.id.etLocationName);
-        Button btnSaveLocation = findViewById(R.id.btnSaveLocation);
+        // バージョン表示の設定
+        try {
+            String versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            tvVersion.setText("v" + versionName);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
 
-        double lat = getIntent().getDoubleExtra("LAT", 35.6895);
-        double lon = getIntent().getDoubleExtra("LON", 139.6917);
-        GeoPoint startPoint = new GeoPoint(lat, lon);
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-        mapView.getController().setZoom(15.0);
-        mapView.getController().setCenter(startPoint);
+        // 位置情報の権限チェック
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        } else {
+            getLocation();
+        }
 
-        MapEventsReceiver mReceive = new MapEventsReceiver() {
-            @Override
-            public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
-            @Override
-            public boolean longPressHelper(GeoPoint p) {
-                if(currentMarker != null) mapView.getOverlays().remove(currentMarker);
-                currentMarker = new Marker(mapView);
-                currentMarker.setPosition(p);
-                currentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-                mapView.getOverlays().add(currentMarker);
-                mapView.invalidate();
-                return true;
+        // スタートボタン
+        btnStart.setOnClickListener(v -> {
+            tvStatus.setText("GPS取得中...");
+            Toast.makeText(this, "バックグラウンド取得を開始します（予定）", Toast.LENGTH_SHORT).show();
+        });
+
+        // ストップボタン
+        btnStop.setOnClickListener(v -> {
+            tvStatus.setText("GoalGPS 待機中");
+            Toast.makeText(this, "取得を停止しました", Toast.LENGTH_SHORT).show();
+        });
+
+        // 地点登録ボタン（修正済み：ここからMapActivityを起動します）
+        btnRegister.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, MapActivity.class);
+            if (currentLat != 0.0) {
+                intent.putExtra("LAT", currentLat);
+                intent.putExtra("LON", currentLon);
             }
-        };
-        mapView.getOverlays().add(new MapEventsOverlay(mReceive));
-
-        btnSaveLocation.setOnClickListener(v -> {
-            String name = etLocationName.getText().toString();
-            if(name.isEmpty()) {
-                Toast.makeText(this, "名前を入力してください", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if(currentMarker == null) {
-                Toast.makeText(this, "地図を長押しして場所を指定してください", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            
-            LocationEntity entity = new LocationEntity();
-            entity.name = name;
-            entity.latitude = currentMarker.getPosition().getLatitude();
-            entity.longitude = currentMarker.getPosition().getLongitude();
-            
-            db.locationDao().insert(entity);
-            Toast.makeText(this, name + " を登録しました！", Toast.LENGTH_SHORT).show();
-            finish(); 
+            startActivity(intent);
         });
     }
-    
+
+    private void getLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
+                if (location != null) {
+                    currentLat = location.getLatitude();
+                    currentLon = location.getLongitude();
+                    tvStatus.setText(String.format("緯度: %f\n経度: %f", currentLat, currentLon));
+                } else {
+                    tvStatus.setText("位置情報が取得できません");
+                }
+            });
+        }
+    }
+
     @Override
-    protected void onResume() { super.onResume(); mapView.onResume(); }
-    @Override
-    protected void onPause() { super.onPause(); mapView.onPause(); }
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            getLocation();
+        }
+    }
 }
