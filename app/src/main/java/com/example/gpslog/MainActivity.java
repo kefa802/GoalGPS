@@ -31,7 +31,6 @@ public class MainActivity extends AppCompatActivity {
         Button btnRegister = findViewById(R.id.btnRegister);
         TextView tvVersion = findViewById(R.id.tvVersion);
 
-        // システムからバージョン名を取得して右上にセット
         try {
             String versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             tvVersion.setText("v" + versionName);
