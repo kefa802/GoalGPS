@@ -46,5 +46,14 @@
         android:layout_width="match_parent"
         android:layout_height="60dp"
         android:text="地点登録 (マップを開く)"
-        android:textSize="18sp"/>
+        android:textSize="18sp"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnHistory"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:text="履歴表示 (保存済み地点)"
+        android:textSize="18sp"
+        android:backgroundTint="#607D8B"/> 
 </LinearLayout>
