@@ -31,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnRegister = findViewById(R.id.btnRegister);
         TextView tvVersion = findViewById(R.id.tvVersion);
 
+        // バージョン表示の設定
         try {
             String versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             tvVersion.setText("v" + versionName);
@@ -40,22 +41,26 @@ public class MainActivity extends AppCompatActivity {
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
+        // 位置情報の権限チェック
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         } else {
             getLocation();
         }
 
+        // スタートボタン
         btnStart.setOnClickListener(v -> {
             tvStatus.setText("GPS取得中...");
             Toast.makeText(this, "バックグラウンド取得を開始します（予定）", Toast.LENGTH_SHORT).show();
         });
 
+        // ストップボタン
         btnStop.setOnClickListener(v -> {
             tvStatus.setText("GoalGPS 待機中");
             Toast.makeText(this, "取得を停止しました", Toast.LENGTH_SHORT).show();
         });
 
+        // 地点登録ボタン（MapActivityを起動）
         btnRegister.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, MapActivity.class);
             if (currentLat != 0.0) {
