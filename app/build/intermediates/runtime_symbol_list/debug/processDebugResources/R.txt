@@ -806,7 +806,7 @@ int id line1 0x7f08006e
 int id line3 0x7f08006f
 int id listMode 0x7f080070
 int id list_item 0x7f080071
-int id mapView 0x7f080072
+int id map 0x7f080072
 int id message 0x7f080073
 int id middle 0x7f080074
 int id multiply 0x7f080075

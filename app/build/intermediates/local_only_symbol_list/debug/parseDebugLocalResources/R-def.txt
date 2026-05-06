@@ -5,7 +5,7 @@ id btnSaveLocation
 id btnStart
 id btnStop
 id etLocationName
-id mapView
+id map
 id tvStatus
 id tvVersion
 layout activity_main
