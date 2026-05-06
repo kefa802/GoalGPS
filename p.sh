@@ -1,6 +1,14 @@
 #!/bin/bash
-echo "📥 最新のコードをGitHubからお迎えします..."
-git pull origin main
+# GitHubから最新のソースコードを取得するだけのスクリプト
+
+echo "📥 GitHubから最新のコードを取得（同期）します..."
+
+# 強制的にGitHubの状態に合わせる設定（コンフリクト回避）
+git fetch origin
+git reset --hard origin/main
+
+# 実行権限を念のため付け直す
 chmod +x p.sh bc.sh
-echo "✅ 完了！これからビルド(bc.sh)を開始します..."
-./bc.sh
+
+echo "✅ 同期が完了しました！"
+echo "🚀 ビルドする場合は、続けて ./bc.sh を実行してください。"
