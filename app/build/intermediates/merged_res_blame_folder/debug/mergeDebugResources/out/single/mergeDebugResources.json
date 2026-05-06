@@ -1,7 +1,11 @@
 [
     {
-        "merged": "com.example.gpslog.app-debug-26:/layout_activity_main.xml.flat",
-        "source": "com.example.gpslog.app-main-28:/layout/activity_main.xml"
+        "merged": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-debug-26:/layout_activity_main.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-main-28:/layout/activity_main.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-debug-26:/layout_activity_map.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-main-28:/layout/activity_map.xml"
     },
     {
         "merged": "com.example.gpslog.app-debug-26:/layout_activity_map.xml.flat",

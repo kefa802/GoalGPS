@@ -8,8 +8,7 @@
         android:id="@+id/etLocationName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="場所の名前を入力"
-        android:padding="16dp"/>
+        android:hint="場所の名前を入力" />
 
     <org.osmdroid.views.MapView
         android:id="@+id/map"
@@ -20,6 +19,7 @@
     <Button
         android:id="@+id/btnSaveLocation"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="この場所を保存"/>
+        android:layout_height="wrap_content"
+        android:text="この場所を登録" />
+
 </LinearLayout>
