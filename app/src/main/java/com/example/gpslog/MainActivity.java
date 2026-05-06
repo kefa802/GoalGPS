@@ -1,65 +1,39 @@
 package com.example.gpslog;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.location.Location;
 import android.os.Bundle;
+import android.widget.Button;
 import android.widget.TextView;
-import androidx.annotation.NonNull;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.tasks.OnSuccessListener;
 
 public class MainActivity extends AppCompatActivity {
 
-    private FusedLocationProviderClient fusedLocationClient;
-    private TextView locationTextView;
+    private TextView tvStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // 画面の作成
-        locationTextView = new TextView(this);
-        locationTextView.setTextSize(20);
-        locationTextView.setPadding(50, 50, 50, 50);
-        locationTextView.setText("現在地を取得中...");
-        setContentView(locationTextView);
+        // 先ほど作ったXMLレイアウトを画面にセット
+        setContentView(R.layout.activity_main);
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        tvStatus = findViewById(R.id.tvStatus);
+        Button btnStart = findViewById(R.id.btnStart);
+        Button btnStop = findViewById(R.id.btnStop);
+        Button btnRegister = findViewById(R.id.btnRegister);
 
-        // 位置情報の権限チェック
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
-        } else {
-            getLocation();
-        }
-    }
+        // 各ボタンを押したときの処理（今はメッセージが出るだけ）
+        btnStart.setOnClickListener(v -> {
+            tvStatus.setText("GPS取得中...");
+            Toast.makeText(this, "バックグラウンド取得を開始します（予定）", Toast.LENGTH_SHORT).show();
+        });
 
-    private void getLocation() {
-        fusedLocationClient.getLastLocation()
-            .addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                @Override
-                public void onSuccess(Location location) {
-                    if (location != null) {
-                        String result = "【GoalGPS 現在地】\n\n" +
-                                        "緯度: " + location.getLatitude() + "\n" +
-                                        "経度: " + location.getLongitude();
-                        locationTextView.setText(result);
-                    } else {
-                        locationTextView.setText("位置情報が取得できませんでした。\nGPSをONにして再度お試しください。");
-                    }
-                }
-            });
-    }
+        btnStop.setOnClickListener(v -> {
+            tvStatus.setText("GoalGPS 待機中");
+            Toast.makeText(this, "取得を停止しました", Toast.LENGTH_SHORT).show();
+        });
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            getLocation();
-        }
+        btnRegister.setOnClickListener(v -> {
+            Toast.makeText(this, "ここにマップ画面が開きます", Toast.LENGTH_SHORT).show();
+        });
     }
 }
