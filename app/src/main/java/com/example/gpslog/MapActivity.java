@@ -1,4 +1,3 @@
-cat << 'EOF' > /workspaces/GoalGPS/app/src/main/java/com/example/gpslog/MapActivity.java
 package com.example.gpslog;
 
 import android.os.Bundle;
@@ -44,9 +43,10 @@ public class MapActivity extends AppCompatActivity {
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
                 .allowMainThreadQueries().build();
 
+        // 過去のピンを読み込む
         loadSavedMarkers();
 
-        // 初期位置の設定（池袋）
+        // 初期位置（池袋）
         double lat = getIntent().getDoubleExtra("LAT", 35.7295);
         double lon = getIntent().getDoubleExtra("LON", 139.7109);
         if (lat == 0.0) { lat = 35.7295; lon = 139.7109; }
@@ -61,11 +61,9 @@ public class MapActivity extends AppCompatActivity {
         currentMarker.setTitle("新規登録地点");
         mapView.getOverlays().add(currentMarker);
 
-        // ✅ ジャンプボタンの処理（デバッグメッセージ付き）
+        // ✅ ジャンプボタンの処理（確実に動くように修正）
         btnJump.setOnClickListener(v -> {
-            Toast.makeText(this, "◎ボタンが押されました。現在地を探しています...", Toast.LENGTH_SHORT).show();
             try {
-                // 最新の現在地をリクエスト
                 fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                     .addOnSuccessListener(location -> {
                         if (location != null) {
@@ -74,11 +72,11 @@ public class MapActivity extends AppCompatActivity {
                             currentMarker.setPosition(myLoc);
                             mapView.invalidate();
                         } else {
-                            Toast.makeText(this, "GPS信号が弱いため現在地を特定できません", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, "現在地が取得できません", Toast.LENGTH_SHORT).show();
                         }
                     });
             } catch (SecurityException e) {
-                Toast.makeText(this, "位置情報の権限がありません", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "位置情報の許可が必要です", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -131,4 +129,3 @@ public class MapActivity extends AppCompatActivity {
     @Override public void onResume() { super.onResume(); if (mapView != null) mapView.onResume(); }
     @Override public void onPause() { super.onPause(); if (mapView != null) mapView.onPause(); }
 }
-EOF
