@@ -29,10 +29,7 @@ public class MapActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
         Configuration.getInstance().setUserAgentValue(getPackageName());
-        Configuration.getInstance().setOsmdroidTileCache(getCacheDir());
-
         setContentView(R.layout.activity_map);
 
         mapView = findViewById(R.id.map);
@@ -43,25 +40,17 @@ public class MapActivity extends AppCompatActivity {
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
                 .allowMainThreadQueries().build();
 
-        // 過去のピンを読み込む
         loadSavedMarkers();
-
-        // 初期位置（池袋）
-        double lat = getIntent().getDoubleExtra("LAT", 35.7295);
-        double lon = getIntent().getDoubleExtra("LON", 139.7109);
-        if (lat == 0.0) { lat = 35.7295; lon = 139.7109; }
-
-        GeoPoint startPoint = new GeoPoint(lat, lon);
+        GeoPoint startPoint = new GeoPoint(35.7295, 139.7109);
         mapView.getController().setZoom(17.0);
         mapView.getController().setCenter(startPoint);
 
         currentMarker = new Marker(mapView);
         currentMarker.setPosition(startPoint);
         currentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-        currentMarker.setTitle("新規登録地点");
         mapView.getOverlays().add(currentMarker);
 
-        // ✅ ジャンプボタンの処理（確実に動くように修正）
+        // ◎ボタン：クリックしやすく、確実に現在地へ
         btnJump.setOnClickListener(v -> {
             try {
                 fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
@@ -71,20 +60,14 @@ public class MapActivity extends AppCompatActivity {
                             mapView.getController().animateTo(myLoc);
                             currentMarker.setPosition(myLoc);
                             mapView.invalidate();
-                        } else {
-                            Toast.makeText(this, "現在地が取得できません", Toast.LENGTH_SHORT).show();
                         }
                     });
-            } catch (SecurityException e) {
-                Toast.makeText(this, "位置情報の許可が必要です", Toast.LENGTH_SHORT).show();
-            }
+            } catch (SecurityException e) { e.printStackTrace(); }
         });
 
         mapView.getOverlays().add(new MapEventsOverlay(new MapEventsReceiver() {
-            @Override
-            public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
-            @Override
-            public boolean longPressHelper(GeoPoint p) {
+            @Override public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
+            @Override public boolean longPressHelper(GeoPoint p) {
                 currentMarker.setPosition(p);
                 mapView.invalidate();
                 return true;
@@ -110,22 +93,18 @@ public class MapActivity extends AppCompatActivity {
 
     @Override public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.menu_save) {
-            saveLocation();
+            LocationEntity entity = new LocationEntity();
+            entity.name = etName.getText().toString().isEmpty() ? "無題" : etName.getText().toString();
+            entity.latitude = currentMarker.getPosition().getLatitude();
+            entity.longitude = currentMarker.getPosition().getLongitude();
+            db.locationDao().insert(entity);
+            Toast.makeText(this, "保存しました", Toast.LENGTH_SHORT).show();
+            finish();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private void saveLocation() {
-        LocationEntity entity = new LocationEntity();
-        entity.name = etName.getText().toString().isEmpty() ? "無題の地点" : etName.getText().toString();
-        entity.latitude = currentMarker.getPosition().getLatitude();
-        entity.longitude = currentMarker.getPosition().getLongitude();
-        db.locationDao().insert(entity);
-        Toast.makeText(this, entity.name + " を保存しました", Toast.LENGTH_SHORT).show();
-        finish();
-    }
-
-    @Override public void onResume() { super.onResume(); if (mapView != null) mapView.onResume(); }
-    @Override public void onPause() { super.onPause(); if (mapView != null) mapView.onPause(); }
+    @Override public void onResume() { super.onResume(); mapView.onResume(); }
+    @Override public void onPause() { super.onPause(); mapView.onPause(); }
 }
