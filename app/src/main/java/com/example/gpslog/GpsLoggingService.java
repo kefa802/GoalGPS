@@ -1,5 +1,4 @@
 package com.example.gpslog;
-
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -17,15 +16,14 @@ public class GpsLoggingService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private AppDatabase db;
-    private static final float GEOFENCE_RADIUS = 100.0f; // 100メートル以内に入ったら「滞在」
+    private static final float GEOFENCE_RADIUS = 100.0f;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
+        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
+                .allowMainThreadQueries().build();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-
-        // 位置情報が更新されるたびに実行される処理
         locationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(LocationResult locationResult) {
@@ -38,29 +36,22 @@ public class GpsLoggingService extends Service {
     private void checkGeofence(Location currentLoc) {
         List<LocationEntity> locations = db.locationDao().getAll();
         long now = System.currentTimeMillis();
-
         for (LocationEntity loc : locations) {
             float[] results = new float[1];
             Location.distanceBetween(currentLoc.getLatitude(), currentLoc.getLongitude(), loc.latitude, loc.longitude, results);
             float distance = results[0];
-
             LocationLogEntity activeLog = db.locationDao().getActiveLog(loc.id);
-
             if (distance < GEOFENCE_RADIUS) {
-                // 🚀 半径内に入った
                 if (activeLog == null) {
-                    // まだ入室記録がない場合のみ、新規入室ログを作成
                     LocationLogEntity newLog = new LocationLogEntity();
                     newLog.locationId = loc.id;
                     newLog.locationName = loc.name;
                     newLog.entryTime = now;
-                    newLog.exitTime = 0; // まだ滞在中
+                    newLog.exitTime = 0;
                     db.locationDao().insertLog(newLog);
                 }
             } else {
-                // 🏃 半径から出た
                 if (activeLog != null) {
-                    // 滞在中のログがあれば、退室時刻を記録して滞在時間を計算
                     activeLog.exitTime = now;
                     activeLog.stayDuration = activeLog.exitTime - activeLog.entryTime;
                     db.locationDao().updateLog(activeLog);
@@ -77,7 +68,6 @@ public class GpsLoggingService extends Service {
                 .setContentText("自動滞在記録を行っています")
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .build();
-
         startForeground(1, notification);
         startLocationUpdates();
         return START_STICKY;
