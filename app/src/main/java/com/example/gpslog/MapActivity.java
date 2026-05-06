@@ -1,3 +1,4 @@
+cat << 'EOF' > /workspaces/GoalGPS/app/src/main/java/com/example/gpslog/MapActivity.java
 package com.example.gpslog;
 
 import android.os.Bundle;
@@ -16,6 +17,7 @@ import org.osmdroid.events.MapEventsReceiver;
 import org.osmdroid.views.overlay.MapEventsOverlay;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import java.util.List;
 
 public class MapActivity extends AppCompatActivity {
@@ -42,43 +44,44 @@ public class MapActivity extends AppCompatActivity {
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
                 .allowMainThreadQueries().build();
 
-        // 1. 保存済みのピンを表示
         loadSavedMarkers();
 
-        // 2. 初期位置の設定（池袋駅デフォルト）
+        // 初期位置の設定（池袋）
         double lat = getIntent().getDoubleExtra("LAT", 35.7295);
         double lon = getIntent().getDoubleExtra("LON", 139.7109);
-        if (lat == 0.0) lat = 35.7295;
-        if (lon == 0.0) lon = 139.7109;
+        if (lat == 0.0) { lat = 35.7295; lon = 139.7109; }
 
         GeoPoint startPoint = new GeoPoint(lat, lon);
         mapView.getController().setZoom(17.0);
         mapView.getController().setCenter(startPoint);
 
-        // 新規登録用マーカー
         currentMarker = new Marker(mapView);
         currentMarker.setPosition(startPoint);
         currentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-        currentMarker.setTitle("ここを登録");
+        currentMarker.setTitle("新規登録地点");
         mapView.getOverlays().add(currentMarker);
 
-        // 現在地ジャンプボタンの処理 ✅
+        // ✅ ジャンプボタンの処理（デバッグメッセージ付き）
         btnJump.setOnClickListener(v -> {
+            Toast.makeText(this, "◎ボタンが押されました。現在地を探しています...", Toast.LENGTH_SHORT).show();
             try {
-                fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
-                    if (location != null) {
-                        GeoPoint myLoc = new GeoPoint(location.getLatitude(), location.getLongitude());
-                        mapView.getController().animateTo(myLoc); // スーーッと移動
-                        currentMarker.setPosition(myLoc);
-                        mapView.invalidate();
-                    } else {
-                        Toast.makeText(this, "現在地が取得できません", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            } catch (SecurityException e) { e.printStackTrace(); }
+                // 最新の現在地をリクエスト
+                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .addOnSuccessListener(location -> {
+                        if (location != null) {
+                            GeoPoint myLoc = new GeoPoint(location.getLatitude(), location.getLongitude());
+                            mapView.getController().animateTo(myLoc);
+                            currentMarker.setPosition(myLoc);
+                            mapView.invalidate();
+                        } else {
+                            Toast.makeText(this, "GPS信号が弱いため現在地を特定できません", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+            } catch (SecurityException e) {
+                Toast.makeText(this, "位置情報の権限がありません", Toast.LENGTH_SHORT).show();
+            }
         });
 
-        // 長押しでマーカー移動
         mapView.getOverlays().add(new MapEventsOverlay(new MapEventsReceiver() {
             @Override
             public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
@@ -102,16 +105,12 @@ public class MapActivity extends AppCompatActivity {
         }
     }
 
-    // ✅ 右上のメニュー（保存ボタン）を作成
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
+    @Override public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.map_menu, menu);
         return true;
     }
 
-    // ✅ メニューが押された時の処理
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
+    @Override public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.menu_save) {
             saveLocation();
             return true;
@@ -132,3 +131,4 @@ public class MapActivity extends AppCompatActivity {
     @Override public void onResume() { super.onResume(); if (mapView != null) mapView.onResume(); }
     @Override public void onPause() { super.onPause(); if (mapView != null) mapView.onPause(); }
 }
+EOF
