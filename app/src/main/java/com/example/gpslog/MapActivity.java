@@ -16,14 +16,13 @@ import java.util.List;
 
 public class MapActivity extends AppCompatActivity {
     private MapView mapView;
-    private Marker currentMarker; // これから登録する地点のマーカー
+    private Marker currentMarker;
     private AppDatabase db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // osmdroidの設定
         Configuration.getInstance().setUserAgentValue(getPackageName());
         Configuration.getInstance().setOsmdroidTileCache(getCacheDir());
 
@@ -36,39 +35,42 @@ public class MapActivity extends AppCompatActivity {
         EditText etName = findViewById(R.id.etLocationName);
         Button btnSave = findViewById(R.id.btnSaveLocation);
 
-        // データベースの準備
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
                 .allowMainThreadQueries().build();
 
-        // --- ✅ ここから追加：保存済みの全地点を地図に表示 ---
+        // 1. 保存済みの地点をすべて表示（ただし 0,0 の「海」は無視する）
         List<LocationEntity> allLocations = db.locationDao().getAll();
         for (LocationEntity loc : allLocations) {
+            if (loc.latitude == 0.0 && loc.longitude == 0.0) continue; // 海はスキップ
+            
             Marker oldMarker = new Marker(mapView);
             oldMarker.setPosition(new GeoPoint(loc.latitude, loc.longitude));
             oldMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
             oldMarker.setTitle(loc.name);
-            // 保存済みのピンは少し色を変える（デフォルトは赤ですが、区別しやすくします）
-            oldMarker.setSubDescription("保存済み");
             mapView.getOverlays().add(oldMarker);
         }
-        // --- ここまで ---
 
-        // MainActivityから送られてきた現在地の座標を取得
-        double lat = getIntent().getDoubleExtra("LAT", 35.7295); // デフォルト池袋駅
+        // 2. 位置情報の取得と「池袋」強制リセット
+        double lat = getIntent().getDoubleExtra("LAT", 35.7295);
         double lon = getIntent().getDoubleExtra("LON", 139.7109);
         
+        // 届いたデータが 0.0（未取得）なら、有無を言わさず池袋駅にする
+        if (lat == 0.0 && lon == 0.0) {
+            lat = 35.7295;
+            lon = 139.7109;
+        }
+
         GeoPoint startPoint = new GeoPoint(lat, lon);
-        mapView.getController().setZoom(17.0);
+        mapView.getController().setZoom(17.0); // ズームもしっかり固定
         mapView.getController().setCenter(startPoint);
 
-        // これから登録する場所のための新しいマーカーを表示
+        // 新規登録用のマーカー
         currentMarker = new Marker(mapView);
         currentMarker.setPosition(startPoint);
         currentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-        currentMarker.setTitle("新規登録地点");
+        currentMarker.setTitle("ここを登録");
         mapView.getOverlays().add(currentMarker);
 
-        // 長押しで新規登録地点を移動させる
         MapEventsOverlay eventsOverlay = new MapEventsOverlay(new MapEventsReceiver() {
             @Override
             public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
@@ -88,7 +90,7 @@ public class MapActivity extends AppCompatActivity {
             entity.longitude = currentMarker.getPosition().getLongitude();
             db.locationDao().insert(entity);
             Toast.makeText(this, entity.name + " を保存しました", Toast.LENGTH_SHORT).show();
-            finish(); // 登録したら画面を閉じる
+            finish();
         });
     }
 
