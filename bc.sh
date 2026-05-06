@@ -1,21 +1,47 @@
 #!/bin/bash
-export ANDROID_HOME=/workspaces/android-sdk
-export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-export PATH=$JAVA_HOME/bin:$PATH
+LOG_FILE="last_build_error.log"
+echo "=== Build Started at $(date) ===" > $LOG_FILE
 
-echo "🚀 Build & Commit (GoalGPS)..."
-gradle :app:assembleDebug -Dorg.gradle.java.home=$JAVA_HOME
+# 環境設定（さっき作った自分専用のSDKを指定）
+export ANDROID_HOME="/workspaces/GoalGPS/my-android-sdk"
+export JAVA_HOME="/usr/local/sdkman/candidates/java/21.0.10-ms"
+export PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
 
-if [ $? -eq 0 ]; then
-    echo "✅ Success! Saving to GitHub..."
-    git add .
-    git commit -m "GoalGPS update: v1.0.1 - $(date +'%Y-%m-%d %H:%M:%S')"
-    git push origin main
-    
-    # 一番手前にアプリをコピーします
-    cp app/build/outputs/apk/debug/app-debug.apk ./GoalGPS_latest.apk
-    echo "🎉 Done! [GoalGPS_latest.apk] をファイル一覧の直下からダウンロードしてください！"
-else
-    echo "❌ Build Failed. Check the errors above."
+echo "🎯 Using Java: $JAVA_HOME" | tee -a $LOG_FILE
+echo "📱 Using SDK: $ANDROID_HOME" | tee -a $LOG_FILE
+
+# 📦 Android開発に必要なパーツ（android-34など）を自前SDKの中にインストール
+echo "📦 必要なSDKコンポーネントをインストール中（少し時間がかかります）..." | tee -a $LOG_FILE
+yes | sdkmanager --licenses --sdk_root=$ANDROID_HOME >> $LOG_FILE 2>&1
+sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "platforms;android-34" "build-tools;34.0.0" >> $LOG_FILE 2>&1
+
+# 🏗️ gradlew がなければ生成
+if [ ! -f "./gradlew" ]; then
+    echo "🛠️ gradlew を生成中..." | tee -a $LOG_FILE
+    gradle wrapper >> $LOG_FILE 2>&1
 fi
+
+echo "🚀 Building GoalGPS..." | tee -a $LOG_FILE
+
+# ビルド実行
+chmod +x gradlew 2>/dev/null
+./gradlew :app:assembleDebug -Dorg.gradle.java.home=$JAVA_HOME --stacktrace >> $LOG_FILE 2>&1
+
+# 結果判定とログ出力
+if [ $? -eq 0 ]; then
+    echo "✅ SUCCESS! ついに完全決着です！" | tee -a $LOG_FILE
+    APK=$(find app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
+    cp "$APK" ./GoalGPS_latest.apk
+    echo "🎉 GoalGPS_latest.apk をダウンロードしてください！"
+else
+    echo "❌ BUILD FAILED!" | tee -a $LOG_FILE
+    echo "--------------------------------------------------"
+    if grep -q "What went wrong:" $LOG_FILE; then
+        sed -n '/What went wrong:/,$p' $LOG_FILE | head -n 50
+    else
+        tail -n 30 $LOG_FILE
+    fi
+    echo "--------------------------------------------------"
+fi
+# ターミナル落ち防止
+exit 0
