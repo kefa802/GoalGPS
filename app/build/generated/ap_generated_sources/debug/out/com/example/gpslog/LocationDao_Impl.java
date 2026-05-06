@@ -14,9 +14,7 @@ import java.lang.SuppressWarnings;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.processing.Generated;
 
-@Generated("androidx.room.RoomProcessor")
 @SuppressWarnings({"unchecked", "deprecation"})
 public final class LocationDao_Impl implements LocationDao {
   private final RoomDatabase __db;
@@ -58,7 +56,7 @@ public final class LocationDao_Impl implements LocationDao {
   }
 
   @Override
-  public List<LocationEntity> getAllLocations() {
+  public List<LocationEntity> getAll() {
     final String _sql = "SELECT * FROM locations";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     __db.assertNotSuspendingTransaction();

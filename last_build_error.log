@@ -1,4 +1,4 @@
-=== Build Started at Wed May  6 14:42:32 UTC 2026 ===
+=== Build Started at Wed May  6 15:00:41 UTC 2026 ===
 🎯 Using Java: /usr/local/sdkman/candidates/java/21.0.10-ms
 📱 Using SDK: /workspaces/GoalGPS/my-android-sdk
 📦 必要なSDKコンポーネントをインストール中（少し時間がかかります）...
@@ -14,46 +14,53 @@ Loading package information...                                                  
 > Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:checkDebugAarMetadata UP-TO-DATE
 > Task :app:generateDebugResValues UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths
-> Task :app:generateDebugResources
-> Task :app:mergeDebugResources
-> Task :app:packageDebugResources
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
 > Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
 > Task :app:extractDeepLinksDebug UP-TO-DATE
-> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
 
-> Task :app:processDebugMainManifest
-package="com.example.gpslog" found in source AndroidManifest.xml: /workspaces/GoalGPS/app/src/main/AndroidManifest.xml.
-Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
-Recommendation: remove package="com.example.gpslog" from the source AndroidManifest.xml: /workspaces/GoalGPS/app/src/main/AndroidManifest.xml.
+> Task :app:compileDebugJavaWithJavac
+Java compiler version 21 has deprecated support for compiling with source/target version 8.
+Try one of the following options:
+    1. [Recommended] Set a lower Java compiler version (using Java toolchain)
+    2. Set a higher source/target version
+    3. If you don't want to use Java toolchain, try using a lower version of the JDK running the build
+       (e.g., by setting the `JAVA_HOME` environment variable or the `org.gradle.java.home` Gradle property)
+For more details on how to configure these settings, see https://developer.android.com/build/jdks.
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
 
-> Task :app:processDebugManifest
 > Task :app:mergeDebugShaders UP-TO-DATE
-> Task :app:processDebugManifestForPackage
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets UP-TO-DATE
 > Task :app:compressDebugAssets UP-TO-DATE
-> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
 > Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
 > Task :app:mergeDebugStartupProfile UP-TO-DATE
 > Task :app:mergeExtDexDebug UP-TO-DATE
-> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugJavaResource
 > Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeProjectDexDebug
 > Task :app:mergeDebugNativeLibs NO-SOURCE
 > Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
-> Task :app:processDebugResources
-> Task :app:compileDebugJavaWithJavac
-> Task :app:dexBuilderDebug
-> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
-> Task :app:processDebugJavaRes UP-TO-DATE
-> Task :app:mergeDebugJavaResource UP-TO-DATE
-> Task :app:mergeProjectDexDebug
 > Task :app:packageDebug
-> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
 [Incubating] Problems report is available at: file:///workspaces/GoalGPS/build/reports/problems/problems-report.html
@@ -64,7 +71,7 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.4.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3s
-34 actionable tasks: 13 executed, 21 up-to-date
+BUILD SUCCESSFUL in 7s
+33 actionable tasks: 7 executed, 26 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.4.0/userguide/configuration_cache_enabling.html
 ✅ SUCCESS! ついに完全決着です！

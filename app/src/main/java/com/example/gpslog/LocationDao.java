@@ -5,8 +5,8 @@ import androidx.room.Query;
 import java.util.List;
 @Dao
 public interface LocationDao {
-    @Insert
-    void insert(LocationEntity location);
+    @Insert void insert(LocationEntity location);
+    
     @Query("SELECT * FROM locations")
-    List<LocationEntity> getAllLocations();
+    List<LocationEntity> getAll();
 }
