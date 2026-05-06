@@ -1,6 +1,3 @@
-
-
-
 package com.example.gpslog;
 
 import android.os.Bundle;
@@ -24,25 +21,38 @@ public class MapActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_map);
-
-        // クラッシュ対策：この2行をセットで書く必要があります
+        
+        // 📜 osmdroidの設定（必ずセットで記述）
         Configuration.getInstance().setUserAgentValue(getPackageName());
         Configuration.getInstance().setOsmdroidTileCache(getCacheDir());
 
+        setContentView(R.layout.activity_map);
+
+        // ✅ IDが正しく見つかるかチェック
         mapView = findViewById(R.id.map);
+        if (mapView == null) {
+            Toast.makeText(this, "エラー: 地図レイアウトが見つかりません", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+
         mapView.setMultiTouchControls(true);
         EditText etName = findViewById(R.id.etLocationName);
         Button btnSave = findViewById(R.id.btnSaveLocation);
 
-        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
+        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
+                .allowMainThreadQueries()
+                .build();
 
-        double lat = getIntent().getDoubleExtra("LAT", 35.6812);
-        double lon = getIntent().getDoubleExtra("LON", 139.7671);
+        // MainActivityから送られてきた位置情報を取得
+        double lat = getIntent().getDoubleExtra("LAT", 5.4141); // デフォルトはジョージタウン付近
+        double lon = getIntent().getDoubleExtra("LON", 100.3288);
+        
         GeoPoint startPoint = new GeoPoint(lat, lon);
         mapView.getController().setZoom(18.0);
         mapView.getController().setCenter(startPoint);
 
+        // 長押しでマーカーを置く処理
         MapEventsReceiver mReceive = new MapEventsReceiver() {
             @Override
             public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
@@ -72,5 +82,18 @@ public class MapActivity extends AppCompatActivity {
             Toast.makeText(this, entity.name + " を登録しました！", Toast.LENGTH_SHORT).show();
             finish();
         });
+    }
+
+    // 🔄 地図を正しく表示・一時停止させるためのお作法
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mapView != null) mapView.onResume();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mapView != null) mapView.onPause();
     }
 }
