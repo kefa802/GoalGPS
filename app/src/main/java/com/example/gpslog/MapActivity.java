@@ -22,7 +22,11 @@ public class MapActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map);
+
+        // クラッシュ対策：この2行をセットで書く必要があります
         Configuration.getInstance().setUserAgentValue(getPackageName());
+        Configuration.getInstance().setOsmdroidTileCache(getCacheDir());
+
         mapView = findViewById(R.id.map);
         mapView.setMultiTouchControls(true);
         EditText etName = findViewById(R.id.etLocationName);
