@@ -1,3 +1,6 @@
+
+
+
 package com.example.gpslog;
 
 import android.os.Bundle;
