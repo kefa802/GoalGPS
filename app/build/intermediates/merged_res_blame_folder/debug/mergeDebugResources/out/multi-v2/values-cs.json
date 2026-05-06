@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.gpslog.app-mergeDebugResources-20:/values-cs/values-cs.xml",
+            "outputFile": "com.example.gpslog.app-mergeDebugResources-24:/values-cs/values-cs.xml",
             "map": [
                 {
                     "source": "/home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/res/values-cs/values.xml",

@@ -15,81 +15,125 @@
 12-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:4:5-81
 12-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:4:22-78
 13
-14    <permission
-14-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:22:5-24:47
-15        android:name="com.example.gpslog.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-15-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:23:9-81
-16        android:protectionLevel="signature" />
-16-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:24:9-44
-17
-18    <uses-permission android:name="com.example.gpslog.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
-18-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:26:5-97
-18-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:26:22-94
-19
-20    <application
-20-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:6:5-15:19
-21        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-21-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:28:18-86
-22        android:debuggable="true"
-23        android:extractNativeLibs="false"
-24        android:label="GoalGPS"
-24-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:7:9-32
-25        android:theme="@style/Theme.AppCompat.Light" >
-25-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:8:9-53
-26        <activity
-26-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:9:9-14:20
-27            android:name="com.example.gpslog.MainActivity"
-27-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:9:19-47
-28            android:exported="true" >
-28-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:9:48-71
-29            <intent-filter>
-29-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:10:13-13:29
-30                <action android:name="android.intent.action.MAIN" />
-30-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:11:17-69
-30-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:11:25-66
+14    <supports-screens
+14-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:9:5-12:40
+15        android:anyDensity="true"
+15-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:10:9-34
+16        android:largeScreens="true"
+16-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:11:9-36
+17        android:normalScreens="true" />
+17-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:12:9-37
+18
+19    <uses-feature
+19-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:14:5-16:36
+20        android:name="android.hardware.location.network"
+20-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:15:9-57
+21        android:required="false" />
+21-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:16:9-33
+22    <uses-feature
+22-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:17:5-19:36
+23        android:name="android.hardware.location.gps"
+23-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:18:9-53
+24        android:required="false" />
+24-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:19:9-33
+25    <uses-feature
+25-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:20:5-22:36
+26        android:name="android.hardware.telephony"
+26-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:21:9-50
+27        android:required="false" />
+27-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:22:9-33
+28    <uses-feature
+28-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:23:5-25:36
+29        android:name="android.hardware.wifi"
+29-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:24:9-45
+30        android:required="false" />
+30-->[org.osmdroid:osmdroid-android:6.1.16] /home/codespace/.gradle/caches/9.4.0/transforms/de052cd852165ef985d2b54d0d291765/transformed/osmdroid-android-6.1.16/AndroidManifest.xml:25:9-33
 31
-32                <category android:name="android.intent.category.LAUNCHER" />
-32-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:12:17-77
-32-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:12:27-74
-33            </intent-filter>
-34        </activity>
-35        <activity
-35-->[com.google.android.gms:play-services-base:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/AndroidManifest.xml:20:9-22:45
-36            android:name="com.google.android.gms.common.api.GoogleApiActivity"
-36-->[com.google.android.gms:play-services-base:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/AndroidManifest.xml:20:19-85
-37            android:exported="false"
-37-->[com.google.android.gms:play-services-base:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/AndroidManifest.xml:22:19-43
-38            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-38-->[com.google.android.gms:play-services-base:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/AndroidManifest.xml:21:19-78
-39
-40        <meta-data
-40-->[com.google.android.gms:play-services-basement:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/c44fd8c0d154097c9d0b481e776908c6/transformed/play-services-basement-18.1.0/AndroidManifest.xml:21:9-23:69
-41            android:name="com.google.android.gms.version"
-41-->[com.google.android.gms:play-services-basement:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/c44fd8c0d154097c9d0b481e776908c6/transformed/play-services-basement-18.1.0/AndroidManifest.xml:22:13-58
-42            android:value="@integer/google_play_services_version" />
-42-->[com.google.android.gms:play-services-basement:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/c44fd8c0d154097c9d0b481e776908c6/transformed/play-services-basement-18.1.0/AndroidManifest.xml:23:13-66
-43
-44        <provider
-44-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
-45            android:name="androidx.startup.InitializationProvider"
-45-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
-46            android:authorities="com.example.gpslog.androidx-startup"
-46-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
-47            android:exported="false" >
-47-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
-48            <meta-data
-48-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
-49                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-49-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
-50                android:value="androidx.startup" />
-50-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
-51            <meta-data
-51-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/9.4.0/transforms/943cec727c7dfbd397ade2d57580d3d4/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:31:13-33:52
-52                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-52-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/9.4.0/transforms/943cec727c7dfbd397ade2d57580d3d4/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:32:17-78
-53                android:value="androidx.startup" />
-53-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/9.4.0/transforms/943cec727c7dfbd397ade2d57580d3d4/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:33:17-49
-54        </provider>
-55    </application>
-56
-57</manifest>
+32    <permission
+32-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:22:5-24:47
+33        android:name="com.example.gpslog.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+33-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:23:9-81
+34        android:protectionLevel="signature" />
+34-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:24:9-44
+35
+36    <uses-permission android:name="com.example.gpslog.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+36-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:26:5-97
+36-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:26:22-94
+37
+38    <application
+38-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:6:5-15:19
+39        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+39-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/9.4.0/transforms/77c466d17fc3ba02c2128f6f314c8f2f/transformed/core-1.9.0/AndroidManifest.xml:28:18-86
+40        android:debuggable="true"
+41        android:extractNativeLibs="false"
+42        android:label="GoalGPS"
+42-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:7:9-32
+43        android:theme="@style/Theme.AppCompat.Light" >
+43-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:8:9-53
+44        <activity
+44-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:9:9-14:20
+45            android:name="com.example.gpslog.MainActivity"
+45-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:9:19-47
+46            android:exported="true" >
+46-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:9:48-71
+47            <intent-filter>
+47-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:10:13-13:29
+48                <action android:name="android.intent.action.MAIN" />
+48-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:11:17-69
+48-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:11:25-66
+49
+50                <category android:name="android.intent.category.LAUNCHER" />
+50-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:12:17-77
+50-->/workspaces/GoalGPS/app/src/main/AndroidManifest.xml:12:27-74
+51            </intent-filter>
+52        </activity>
+53
+54        <service
+54-->[androidx.room:room-runtime:2.5.2] /home/codespace/.gradle/caches/9.4.0/transforms/6a23da562dec0e2f3356d4e096093406/transformed/room-runtime-2.5.2/AndroidManifest.xml:24:9-28:63
+55            android:name="androidx.room.MultiInstanceInvalidationService"
+55-->[androidx.room:room-runtime:2.5.2] /home/codespace/.gradle/caches/9.4.0/transforms/6a23da562dec0e2f3356d4e096093406/transformed/room-runtime-2.5.2/AndroidManifest.xml:25:13-74
+56            android:directBootAware="true"
+56-->[androidx.room:room-runtime:2.5.2] /home/codespace/.gradle/caches/9.4.0/transforms/6a23da562dec0e2f3356d4e096093406/transformed/room-runtime-2.5.2/AndroidManifest.xml:26:13-43
+57            android:exported="false" />
+57-->[androidx.room:room-runtime:2.5.2] /home/codespace/.gradle/caches/9.4.0/transforms/6a23da562dec0e2f3356d4e096093406/transformed/room-runtime-2.5.2/AndroidManifest.xml:27:13-37
+58
+59        <activity
+59-->[com.google.android.gms:play-services-base:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/AndroidManifest.xml:20:9-22:45
+60            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+60-->[com.google.android.gms:play-services-base:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/AndroidManifest.xml:20:19-85
+61            android:exported="false"
+61-->[com.google.android.gms:play-services-base:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/AndroidManifest.xml:22:19-43
+62            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+62-->[com.google.android.gms:play-services-base:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/3228a4977403502d7b5e9622618def38/transformed/play-services-base-18.1.0/AndroidManifest.xml:21:19-78
+63
+64        <meta-data
+64-->[com.google.android.gms:play-services-basement:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/c44fd8c0d154097c9d0b481e776908c6/transformed/play-services-basement-18.1.0/AndroidManifest.xml:21:9-23:69
+65            android:name="com.google.android.gms.version"
+65-->[com.google.android.gms:play-services-basement:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/c44fd8c0d154097c9d0b481e776908c6/transformed/play-services-basement-18.1.0/AndroidManifest.xml:22:13-58
+66            android:value="@integer/google_play_services_version" />
+66-->[com.google.android.gms:play-services-basement:18.1.0] /home/codespace/.gradle/caches/9.4.0/transforms/c44fd8c0d154097c9d0b481e776908c6/transformed/play-services-basement-18.1.0/AndroidManifest.xml:23:13-66
+67
+68        <provider
+68-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+69            android:name="androidx.startup.InitializationProvider"
+69-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
+70            android:authorities="com.example.gpslog.androidx-startup"
+70-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
+71            android:exported="false" >
+71-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
+72            <meta-data
+72-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+73                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+73-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
+74                android:value="androidx.startup" />
+74-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/9.4.0/transforms/50bc5973227dffeb69a1cf7506121ebd/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
+75            <meta-data
+75-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/9.4.0/transforms/943cec727c7dfbd397ade2d57580d3d4/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:31:13-33:52
+76                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+76-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/9.4.0/transforms/943cec727c7dfbd397ade2d57580d3d4/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:32:17-78
+77                android:value="androidx.startup" />
+77-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/9.4.0/transforms/943cec727c7dfbd397ade2d57580d3d4/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:33:17-49
+78        </provider>
+79    </application>
+80
+81</manifest>

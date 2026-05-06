@@ -1,7 +1,11 @@
 R_DEF: Internal format may change without notice
 local
 id btnRegister
+id btnSaveLocation
 id btnStart
 id btnStop
+id etLocationName
+id mapView
 id tvStatus
 layout activity_main
+layout activity_map
