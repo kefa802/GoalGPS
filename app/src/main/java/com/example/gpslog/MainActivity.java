@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,7 +23,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -33,7 +33,8 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView rvLogs;
     private AppDatabase db;
     private boolean isHourUnit = false;
-    private Calendar displayDate = Calendar.getInstance(); // ✅ 表示中の日付管理
+    private Handler updateHandler = new Handler();
+    private Runnable updateRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,8 +50,8 @@ public class MainActivity extends AppCompatActivity {
         RadioGroup rgUnit = findViewById(R.id.rgUnit);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
+        tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(new Date()));
 
-        // 単位（分/時）の切り替え
         rgUnit.setOnCheckedChangeListener((group, checkedId) -> {
             isHourUnit = (checkedId == R.id.rbHour);
             String unitLabel = isHourUnit ? "(時)" : "(分)";
@@ -59,72 +60,48 @@ public class MainActivity extends AppCompatActivity {
             refreshLogs();
         });
 
-        // 記録スイッチ ✅
         switchRecord.setOnCheckedChangeListener((v, isChecked) -> {
             if (isChecked) { startGpsService(); } else { stopGpsService(); }
         });
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
 
-        updateUI(isServiceRunning(GpsLoggingService.class));
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
-        
-        updateDateDisplay(); // 初期表示
-    }
 
-    private void updateDateDisplay() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN);
-        tvDate.setText(sdf.format(displayDate.getTime()));
-        refreshLogs();
+        // ✅ 1秒ごとに表示を更新するタイマー設定
+        updateRunnable = new Runnable() {
+            @Override
+            public void run() {
+                refreshLogs();
+                updateHandler.postDelayed(this, 1000);
+            }
+        };
     }
 
     private void refreshLogs() {
-        // 全ログを取得し、表示中にその場で移動時間を計算するロジック
         List<LocationLogEntity> logs = db.locationDao().getAllLogs();
-        
         rvLogs.setAdapter(new RecyclerView.Adapter<LogViewHolder>() {
             @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
                 return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
             }
-
-            @Override public void onBindViewHolder(@NonNull LogViewHolder h, int position) {
-                LocationLogEntity current = logs.get(position);
+            @Override public void onBindViewHolder(@NonNull LogViewHolder h, int p) {
+                LocationLogEntity current = logs.get(p);
                 h.tvName.setText(current.locationName);
-
-                // ✅ IN時間（滞在時間）の計算
-                // まだ滞在中の場合は「今までの時間」を計算
                 long stayMs = (current.exitTime == 0) ? (System.currentTimeMillis() - current.entryTime) : current.stayDuration;
                 h.tvIn.setText(formatDuration(stayMs));
-
-                // ✅ OUT時間（移動時間）の計算
-                // ひとつ古いログ（リストでは次の要素）の退室から、今の入室までの差
-                if (position + 1 < logs.size()) {
-                    LocationLogEntity previous = logs.get(position + 1);
-                    if (previous.exitTime != 0) {
-                        long moveMs = current.entryTime - previous.exitTime;
-                        h.tvOut.setText(formatDuration(moveMs));
-                    } else { h.tvOut.setText("--"); }
-                } else {
-                    h.tvOut.setText("始動"); // 最初の地点
-                }
+                if (p + 1 < logs.size()) {
+                    LocationLogEntity previous = logs.get(p + 1);
+                    h.tvOut.setText(previous.exitTime != 0 ? formatDuration(current.entryTime - previous.exitTime) : "--");
+                } else { h.tvOut.setText("始動"); }
             }
             @Override public int getItemCount() { return logs.size(); }
         });
     }
 
     private String formatDuration(long millis) {
-        // ミリ秒を 分 または 時 に変換して「5:29」のような形式にする
         long totalSeconds = millis / 1000;
-        long totalMinutes = totalSeconds / 60;
-        
-        if (isHourUnit) {
-            double hours = (double) totalMinutes / 60;
-            return String.format(Locale.JAPAN, "%.2f", hours);
-        } else {
-            long minutes = totalMinutes;
-            long seconds = totalSeconds % 60;
-            return String.format(Locale.JAPAN, "%d:%02d", minutes, seconds); // ✅ スケッチの「5:29」形式
-        }
+        if (isHourUnit) return String.format(Locale.JAPAN, "%.2f", (double) totalSeconds / 3600);
+        return String.format(Locale.JAPAN, "%d:%02d", totalSeconds / 60, totalSeconds % 60);
     }
 
     private void updateUI(boolean isRunning) {
@@ -147,6 +124,19 @@ public class MainActivity extends AppCompatActivity {
         updateUI(false);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateUI(isServiceRunning(GpsLoggingService.class));
+        updateHandler.post(updateRunnable); // タイマー開始
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        updateHandler.removeCallbacks(updateRunnable); // タイマー停止
+    }
+
     private boolean isServiceRunning(Class<?> sc) {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         for (ActivityManager.RunningServiceInfo s : am.getRunningServices(Integer.MAX_VALUE)) {
@@ -155,15 +145,8 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    @Override protected void onResume() { super.onResume(); refreshLogs(); }
-
     static class LogViewHolder extends RecyclerView.ViewHolder {
         TextView tvName, tvIn, tvOut;
-        LogViewHolder(View v) { 
-            super(v); 
-            tvName = v.findViewById(R.id.tvLogName); 
-            tvIn = v.findViewById(R.id.tvLogInTime); 
-            tvOut = v.findViewById(R.id.tvLogOutTime); 
-        }
+        LogViewHolder(View v) { super(v); tvName = v.findViewById(R.id.tvLogName); tvIn = v.findViewById(R.id.tvLogInTime); tvOut = v.findViewById(R.id.tvLogOutTime); }
     }
 }
