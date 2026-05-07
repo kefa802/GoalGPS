@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.LayoutInflater;
@@ -16,6 +15,7 @@ import android.widget.Button;
 import android.widget.RadioGroup;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -35,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isHourUnit = false;
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable;
+    private List<LocationEntity> masterLocations;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +49,6 @@ public class MainActivity extends AppCompatActivity {
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
         RadioGroup rgUnit = findViewById(R.id.rgUnit);
-        Button btnRegister = findViewById(R.id.btnRegister);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
         tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(new Date()));
@@ -58,71 +58,80 @@ public class MainActivity extends AppCompatActivity {
             String unitLabel = isHourUnit ? "(時)" : "(分)";
             tvHeaderIn.setText("IN時間" + unitLabel);
             tvHeaderOut.setText("OUT時間" + unitLabel);
-            refreshLogs();
         });
 
         switchRecord.setOnCheckedChangeListener((v, isChecked) -> {
             if (isChecked) { startGpsService(); } else { stopGpsService(); }
         });
 
-        btnRegister.setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
-        btnRegister.setOnLongClickListener(v -> {
-            startActivity(new Intent(this, HistoryActivity.class));
-            return true;
-        });
-
+        findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
 
         updateRunnable = new Runnable() {
             @Override public void run() {
-                refreshLogs();
+                refreshDashboard();
                 updateHandler.postDelayed(this, 1000);
             }
         };
     }
 
-    private void refreshLogs() {
-        // ✅ 修正①： visit_logs ではなく、マスターである locations を基準に取得する
-        // これで、登録したすべての地点が HistoryActivity で決めた順序で並びます。
-        List<LocationEntity> locations = db.locationDao().getAll();
+    private void refreshDashboard() {
+        masterLocations = db.locationDao().getAll();
+        long now = System.currentTimeMillis();
         
         rvLogs.setAdapter(new RecyclerView.Adapter<LogViewHolder>() {
             @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
                 return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
             }
 
-            @Override public void onBindViewHolder(@NonNull LogViewHolder h, int p) {
-                LocationEntity loc = locations.get(p);
+            @Override public void onBindViewHolder(@NonNull LogViewHolder h, int position) {
+                LocationEntity loc = masterLocations.get(position);
+                LocationLogEntity latest = db.locationDao().getLatestLog(loc.id);
                 h.tvName.setText(loc.name);
 
-                // この地点の最新のログ（まだ滞在中のもの）を探す
-                LocationLogEntity activeLog = db.locationDao().getActiveLog(loc.id);
-
-                if (activeLog != null) {
-                    // ✅ 修正③：カウント中（滞在なう）は緑色で塗りつぶす
-                    long stayMs = System.currentTimeMillis() - activeLog.entryTime;
-                    h.tvIn.setText(formatDuration(stayMs));
-                    h.tvIn.setBackgroundColor(Color.parseColor("#C8E6C9")); // 薄緑
-                    h.tvIn.setTextColor(Color.parseColor("#2E7D32")); // 濃緑
-                    h.tvOut.setText("滞在中");
-                    h.tvOut.setBackgroundColor(Color.TRANSPARENT);
+                // ✅ 改善③：全地点でのIN/OUTカウントロジック
+                if (latest != null) {
+                    if (latest.exitTime == 0) {
+                        // 今まさに滞在中：INをカウント、OUTは停止
+                        h.tvIn.setText(formatDuration(now - latest.entryTime));
+                        h.tvIn.setBackgroundColor(Color.parseColor("#C8E6C9")); // 緑
+                        h.tvOut.setText("--:--");
+                        h.tvOut.setBackgroundColor(Color.TRANSPARENT);
+                    } else {
+                        // 離れている：INは前回の滞在時間、OUTをカウント
+                        h.tvIn.setText(formatDuration(latest.stayDuration));
+                        h.tvIn.setBackgroundColor(Color.TRANSPARENT);
+                        h.tvOut.setText(formatDuration(now - latest.exitTime));
+                        h.tvOut.setBackgroundColor(Color.parseColor("#FFCDD2")); // 薄赤
+                    }
                 } else {
-                    // 滞在中でない場合
-                    h.tvIn.setText("--:--");
-                    h.tvIn.setBackgroundColor(Color.TRANSPARENT);
-                    h.tvIn.setTextColor(Color.parseColor("#2196F3"));
-                    h.tvOut.setText("--:--");
-                    h.tvOut.setBackgroundColor(Color.TRANSPARENT);
+                    h.tvIn.setText("未訪");
+                    h.tvOut.setText("始動");
                 }
+
+                // ✅ 改善① & ②：入れ替えと削除ボタンの処理
+                h.btnUp.setOnClickListener(v -> { if (position > 0) swap(position, position - 1); });
+                h.btnDown.setOnClickListener(v -> { if (position < masterLocations.size() - 1) swap(position, position + 1); });
+                h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show(); });
             }
-            @Override public int getItemCount() { return locations.size(); }
+            @Override public int getItemCount() { return masterLocations.size(); }
         });
     }
 
+    private void swap(int f, int t) {
+        LocationEntity from = masterLocations.get(f);
+        LocationEntity to = masterLocations.get(t);
+        int temp = from.displayOrder;
+        from.displayOrder = to.displayOrder;
+        to.displayOrder = temp;
+        db.locationDao().update(from);
+        db.locationDao().update(to);
+    }
+
     private String formatDuration(long millis) {
-        long totalSeconds = millis / 1000;
-        if (isHourUnit) return String.format(Locale.JAPAN, "%.2f", (double) totalSeconds / 3600);
-        return String.format(Locale.JAPAN, "%d:%02d", totalSeconds / 60, totalSeconds % 60);
+        long sec = millis / 1000;
+        if (isHourUnit) return String.format(Locale.JAPAN, "%.2f", (double) sec / 3600);
+        return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
     }
 
     private void updateUI(boolean isRunning) {
@@ -145,16 +154,8 @@ public class MainActivity extends AppCompatActivity {
         updateUI(false);
     }
 
-    @Override protected void onResume() {
-        super.onResume();
-        updateUI(isServiceRunning(GpsLoggingService.class));
-        updateHandler.post(updateRunnable);
-    }
-
-    @Override protected void onPause() {
-        super.onPause();
-        updateHandler.removeCallbacks(updateRunnable);
-    }
+    @Override protected void onResume() { super.onResume(); updateUI(isServiceRunning(GpsLoggingService.class)); updateHandler.post(updateRunnable); }
+    @Override protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
 
     private boolean isServiceRunning(Class<?> sc) {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
@@ -165,12 +166,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     static class LogViewHolder extends RecyclerView.ViewHolder {
-        TextView tvName, tvIn, tvOut;
-        LogViewHolder(View v) { 
-            super(v); 
-            tvName = v.findViewById(R.id.tvLogName); 
-            tvIn = v.findViewById(R.id.tvLogInTime); 
-            tvOut = v.findViewById(R.id.tvLogOutTime); 
-        }
+        TextView tvName, tvIn, tvOut; Button btnUp, btnDown, btnDel;
+        LogViewHolder(View v) { super(v); tvName = v.findViewById(R.id.tvLogName); tvIn = v.findViewById(R.id.tvLogInTime); tvOut = v.findViewById(R.id.tvLogOutTime); btnUp = v.findViewById(R.id.btnRowUp); btnDown = v.findViewById(R.id.btnRowDown); btnDel = v.findViewById(R.id.btnRowDel); }
     }
 }
