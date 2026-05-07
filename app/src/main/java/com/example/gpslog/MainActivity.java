@@ -8,7 +8,6 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +15,7 @@ import android.widget.Button;
 import android.widget.RadioGroup;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -36,7 +36,6 @@ public class MainActivity extends AppCompatActivity {
     private boolean isHourUnit = false;
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable;
-    // ✅ クラッシュ防止のため空リストで初期化
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LocationAdapter adapter;
 
@@ -49,29 +48,25 @@ public class MainActivity extends AppCompatActivity {
         tvDate = findViewById(R.id.tvDate);
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
-        tvVersion = findViewById(R.id.tvVersion); // ✅ 追加
+        tvVersion = findViewById(R.id.tvVersion);
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
         tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(new Date()));
+        
+        // ✅ バージョン表示 (1.0.0.12 のように表示されます)
+        tvVersion.setText("Ver: " + BuildConfig.VERSION_NAME);
 
-        // ✅ build.gradle で生成されたバージョン名を表示
-        String vName = BuildConfig.VERSION_NAME;
-        tvVersion.setText("Ver: " + vName);
-
-        // ✅ リストの準備を onCreate で完了させる
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LocationAdapter();
         rvLogs.setAdapter(adapter);
 
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> {
             isHourUnit = (id == R.id.rbHour);
-            String unitLabel = isHourUnit ? "(時)" : "(分)";
-            tvHeaderIn.setText("IN" + unitLabel);
-            tvHeaderOut.setText("OUT" + unitLabel);
-            // 単位切り替え時はリスト全体を更新
-            refreshLocations();
+            String u = isHourUnit ? "(時)" : "(分)";
+            tvHeaderIn.setText("IN" + u); tvHeaderOut.setText("OUT" + u);
+            refreshData();
         });
 
         switchRecord.setOnCheckedChangeListener((v, isChecked) -> {
@@ -80,36 +75,41 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
 
-        // ✅ 1秒毎の更新タイマー
         updateRunnable = new Runnable() {
-            @Override
-            public void run() {
-                // UIのみを更新（地点リストの再取得はしない）
+            @Override public void run() {
                 adapter.notifyDataSetChanged();
                 updateHandler.postDelayed(this, 1000);
             }
         };
     }
 
-    private void refreshLocations() {
-        // データベースから地点を取得
+    private void refreshData() {
         masterLocations = db.locationDao().getAll();
-        // ✅ 診断用ログ：地点数を Logcat に出力
-        Log.d("GoalGPS", "Location count: " + masterLocations.size());
-        adapter.notifyDataSetChanged(); // UI更新
+        adapter.notifyDataSetChanged();
     }
 
     private String formatDuration(long ms) {
         if (ms < 0) ms = 0;
-        long totalSeconds = ms / 1000;
-        if (isHourUnit) return String.format(Locale.JAPAN, "%.2f", (double) totalSeconds / 3600);
-        return String.format(Locale.JAPAN, "%d:%02d", totalSeconds / 60, totalSeconds % 60);
+        long sec = ms / 1000;
+        if (isHourUnit) return String.format(Locale.JAPAN, "%.2f", (double) sec / 3600);
+        return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
     }
 
-    private void updateUI(boolean isRunning) {
-        switchRecord.setChecked(isRunning);
-        tvStatusBanner.setText(isRunning ? "オンライン：自動記録中" : "オフライン");
-        tvStatusBanner.setBackgroundColor(isRunning ? Color.parseColor("#4CAF50") : Color.parseColor("#9E9E9E"));
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateUI(isServiceRunning(GpsLoggingService.class));
+        refreshData(); // 画面に戻った時に必ずデータを読み直す ✅
+        updateHandler.post(updateRunnable);
+    }
+
+    @Override
+    protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
+
+    private void updateUI(boolean run) {
+        switchRecord.setChecked(run);
+        tvStatusBanner.setText(run ? "オンライン：自動記録中" : "オフライン");
+        tvStatusBanner.setBackgroundColor(run ? Color.parseColor("#4CAF50") : Color.parseColor("#9E9E9E"));
     }
 
     private void startGpsService() {
@@ -121,24 +121,7 @@ public class MainActivity extends AppCompatActivity {
         updateUI(true);
     }
 
-    private void stopGpsService() {
-        stopService(new Intent(this, GpsLoggingService.class));
-        updateUI(false);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        updateUI(isServiceRunning(GpsLoggingService.class));
-        refreshLocations(); // 画面に戻るたびに地点リストを最新にする ✅
-        updateHandler.post(updateRunnable); // タイマー開始 ✅
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        updateHandler.removeCallbacks(updateRunnable); // タイマー停止 ✅
-    }
+    private void stopGpsService() { stopService(new Intent(this, GpsLoggingService.class)); updateUI(false); }
 
     private boolean isServiceRunning(Class<?> sc) {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
@@ -148,43 +131,33 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // ✅ リストの表示ロジック（Adapter）
     class LocationAdapter extends RecyclerView.Adapter<LogViewHolder> {
         @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
             return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
         }
 
-        @Override public void onBindViewHolder(@NonNull LogViewHolder h, int position) {
-            if (position >= masterLocations.size()) return;
-            
-            LocationEntity loc = masterLocations.get(position);
-            LocationLogEntity latestLog = db.locationDao().getLatestLog(loc.id);
-            h.tvName.setText(loc.name);
-
+        @Override public void onBindViewHolder(@NonNull LogViewHolder h, int pos) {
+            if (pos >= masterLocations.size()) return;
+            LocationEntity loc = masterLocations.get(pos);
+            LocationLogEntity latest = db.locationDao().getLatestLog(loc.id);
+            h.name.setText(loc.name);
             long now = System.currentTimeMillis();
 
-            if (latestLog != null && latestLog.exitTime == 0) {
-                // ✅ 滞在中：INをカウント
-                long stayMs = now - latestLog.entryTime;
-                h.tvIn.setText(formatDuration(stayMs));
-                h.tvIn.setBackgroundColor(Color.parseColor("#C8E6C9")); // 緑
-                h.tvOut.setText("0:00");
-                h.tvOut.setBackgroundColor(Color.TRANSPARENT);
+            if (latest != null && latest.exitTime == 0) {
+                h.in.setText(formatDuration(now - latest.entryTime));
+                h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
+                h.out.setText("0:00");
+                h.out.setBackgroundColor(Color.TRANSPARENT);
             } else {
-                // ✅ 地点の外
                 h.in.setBackgroundColor(Color.TRANSPARENT);
-                h.in.setText(latestLog != null ? formatDuration(latestLog.stayDuration) : "0:00");
-
-                if (position == 0) {
-                    // ① 1つ目の地点（Homeなど）: 外にいるなら 0:00 ✅
+                h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
+                if (pos == 0) {
                     h.out.setText("0:00");
                     h.out.setBackgroundColor(Color.TRANSPARENT);
                 } else {
-                    // ③ 2つ目以降（訪問先）: 外にいる間カウントアップ ✅
-                    if (latestLog != null) {
-                        long outMs = now - latestLog.exitTime;
-                        h.out.setText(formatDuration(outMs));
-                        h.out.setBackgroundColor(Color.parseColor("#FFCDD2")); // 赤
+                    if (latest != null) {
+                        h.out.setText(formatDuration(now - latest.exitTime));
+                        h.out.setBackgroundColor(Color.parseColor("#FFCDD2"));
                     } else {
                         h.out.setText("始動");
                         h.out.setBackgroundColor(Color.TRANSPARENT);
@@ -192,30 +165,24 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            h.btnUp.setOnClickListener(v -> { if (position > 0) swap(position, position - 1); });
-            h.btnDown.setOnClickListener(v -> { if (position < masterLocations.size() - 1) swap(position, position + 1); });
-            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshLocations(); Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show(); });
+            h.btnUp.setOnClickListener(v -> { if (pos > 0) swap(pos, pos - 1); });
+            h.btnDown.setOnClickListener(v -> { if (pos < masterLocations.size() - 1) swap(pos, pos + 1); });
+            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); });
         }
         @Override public int getItemCount() { return masterLocations.size(); }
     }
 
     private void swap(int f, int t) {
-        if (f < 0 || f >= masterLocations.size() || t < 0 || t >= masterLocations.size()) return;
-        
-        LocationEntity fromLoc = masterLocations.get(f);
-        LocationEntity toLoc = masterLocations.get(t);
-        
-        int tempOrder = fromLoc.displayOrder;
-        fromLoc.displayOrder = toLoc.displayOrder;
-        toLoc.displayOrder = tempOrder;
-        
-        db.locationDao().update(fromLoc);
-        db.locationDao().update(toLoc);
-        refreshLocations();
+        LocationEntity from = masterLocations.get(f), to = masterLocations.get(t);
+        int temp = from.displayOrder;
+        from.displayOrder = to.displayOrder;
+        to.displayOrder = temp;
+        db.locationDao().update(from); db.locationDao().update(to);
+        refreshData();
     }
 
     static class LogViewHolder extends RecyclerView.ViewHolder {
-        TextView tvName, tvIn, tvOut; Button btnUp, btnDown, btnDel;
-        LogViewHolder(View v) { super(v); tvName = v.findViewById(R.id.tvLogName); tvIn = v.findViewById(R.id.tvLogInTime); tvOut = v.findViewById(R.id.tvLogOutTime); btnUp = v.findViewById(R.id.btnRowUp); btnDown = v.findViewById(R.id.btnRowDown); btnDel = v.findViewById(R.id.btnRowDel); }
+        TextView name, in, out; Button btnUp, btnDown, btnDel;
+        LogViewHolder(View v) { super(v); name = v.findViewById(R.id.tvLogName); in = v.findViewById(R.id.tvLogInTime); out = v.findViewById(R.id.tvLogOutTime); btnUp = v.findViewById(R.id.btnRowUp); btnDown = v.findViewById(R.id.btnRowDown); btnDel = v.findViewById(R.id.btnRowDel); }
     }
 }
