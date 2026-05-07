@@ -65,10 +65,7 @@ public class MainActivity extends AppCompatActivity {
             if (isChecked) { startGpsService(); } else { stopGpsService(); }
         });
 
-        // ✅ 変更点：普通に「タップ」すると地図（地点登録）が開く
         btnRegister.setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
-
-        // ✅ 変更点：「長押し」すると、管理画面（削除・並べ替え）が開く
         btnRegister.setOnLongClickListener(v -> {
             startActivity(new Intent(this, HistoryActivity.class));
             return true;
@@ -77,8 +74,7 @@ public class MainActivity extends AppCompatActivity {
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
 
         updateRunnable = new Runnable() {
-            @Override
-            public void run() {
+            @Override public void run() {
                 refreshLogs();
                 updateHandler.postDelayed(this, 1000);
             }
@@ -86,22 +82,40 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshLogs() {
-        List<LocationLogEntity> logs = db.locationDao().getAllLogs();
+        // ✅ 修正①： visit_logs ではなく、マスターである locations を基準に取得する
+        // これで、登録したすべての地点が HistoryActivity で決めた順序で並びます。
+        List<LocationEntity> locations = db.locationDao().getAll();
+        
         rvLogs.setAdapter(new RecyclerView.Adapter<LogViewHolder>() {
             @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
                 return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
             }
+
             @Override public void onBindViewHolder(@NonNull LogViewHolder h, int p) {
-                LocationLogEntity current = logs.get(p);
-                h.tvName.setText(current.locationName);
-                long stayMs = (current.exitTime == 0) ? (System.currentTimeMillis() - current.entryTime) : current.stayDuration;
-                h.tvIn.setText(formatDuration(stayMs));
-                if (p + 1 < logs.size()) {
-                    LocationLogEntity previous = logs.get(p + 1);
-                    h.tvOut.setText(previous.exitTime != 0 ? formatDuration(current.entryTime - previous.exitTime) : "--");
-                } else { h.tvOut.setText("始動"); }
+                LocationEntity loc = locations.get(p);
+                h.tvName.setText(loc.name);
+
+                // この地点の最新のログ（まだ滞在中のもの）を探す
+                LocationLogEntity activeLog = db.locationDao().getActiveLog(loc.id);
+
+                if (activeLog != null) {
+                    // ✅ 修正③：カウント中（滞在なう）は緑色で塗りつぶす
+                    long stayMs = System.currentTimeMillis() - activeLog.entryTime;
+                    h.tvIn.setText(formatDuration(stayMs));
+                    h.tvIn.setBackgroundColor(Color.parseColor("#C8E6C9")); // 薄緑
+                    h.tvIn.setTextColor(Color.parseColor("#2E7D32")); // 濃緑
+                    h.tvOut.setText("滞在中");
+                    h.tvOut.setBackgroundColor(Color.TRANSPARENT);
+                } else {
+                    // 滞在中でない場合
+                    h.tvIn.setText("--:--");
+                    h.tvIn.setBackgroundColor(Color.TRANSPARENT);
+                    h.tvIn.setTextColor(Color.parseColor("#2196F3"));
+                    h.tvOut.setText("--:--");
+                    h.tvOut.setBackgroundColor(Color.TRANSPARENT);
+                }
             }
-            @Override public int getItemCount() { return logs.size(); }
+            @Override public int getItemCount() { return locations.size(); }
         });
     }
 
@@ -131,15 +145,13 @@ public class MainActivity extends AppCompatActivity {
         updateUI(false);
     }
 
-    @Override
-    protected void onResume() {
+    @Override protected void onResume() {
         super.onResume();
         updateUI(isServiceRunning(GpsLoggingService.class));
         updateHandler.post(updateRunnable);
     }
 
-    @Override
-    protected void onPause() {
+    @Override protected void onPause() {
         super.onPause();
         updateHandler.removeCallbacks(updateRunnable);
     }
@@ -154,6 +166,11 @@ public class MainActivity extends AppCompatActivity {
 
     static class LogViewHolder extends RecyclerView.ViewHolder {
         TextView tvName, tvIn, tvOut;
-        LogViewHolder(View v) { super(v); tvName = v.findViewById(R.id.tvLogName); tvIn = v.findViewById(R.id.tvLogInTime); tvOut = v.findViewById(R.id.tvLogOutTime); }
+        LogViewHolder(View v) { 
+            super(v); 
+            tvName = v.findViewById(R.id.tvLogName); 
+            tvIn = v.findViewById(R.id.tvLogInTime); 
+            tvOut = v.findViewById(R.id.tvLogOutTime); 
+        }
     }
 }
