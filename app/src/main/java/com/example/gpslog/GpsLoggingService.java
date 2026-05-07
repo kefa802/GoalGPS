@@ -43,10 +43,8 @@ public class GpsLoggingService extends Service {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel();
         startForeground(1, getNotification("GPSログ記録中..."));
-
         server = new MyWebServer(8080);
         try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) { e.printStackTrace(); }
-
         LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).setMinUpdateIntervalMillis(2000).build();
         locationCallback = new LocationCallback() {
             @Override public void onLocationResult(@NonNull LocationResult locationResult) {
@@ -63,11 +61,9 @@ public class GpsLoggingService extends Service {
         boolean isMock = prefs.getBoolean("is_mock", false);
         double lat = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lat", 0)) : location.getLatitude();
         double lng = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lng", 0)) : location.getLongitude();
-
         Intent intent = new Intent("GPS_LOCATION_UPDATE");
         intent.putExtra("lat", lat); intent.putExtra("lng", lng); intent.putExtra("is_mock", isMock);
         sendBroadcast(intent);
-
         List<LocationEntity> locs = db.locationDao().getAll();
         if (locs != null) {
             for (LocationEntity loc : locs) {
@@ -96,13 +92,12 @@ public class GpsLoggingService extends Service {
         SimpleLog(String n, String i, String o) { this.name = n; this.in_hour = i; this.out_hour = o; }
     }
 
-    // ✅ 画面側と全く同じ「秒切り捨て」の計算用メソッド
     private String formatToHourMatched(long ms) {
         if (ms < 0) ms = 0;
         long sec = ms / 1000;
-        long min = sec / 60; // ここで秒を切り捨て
+        long min = sec / 60; 
         if (min == 0) return "0.00";
-        return String.format(Locale.US, "("%.2f"), (double) min / 60.0);
+        return String.format(Locale.US, "%.2f", (double) min / 60.0);
     }
 
     private class MyWebServer extends NanoHTTPD {
@@ -118,7 +113,6 @@ public class GpsLoggingService extends Service {
                 long start = cal.getTimeInMillis();
                 cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59); cal.set(Calendar.SECOND, 59); cal.set(Calendar.MILLISECOND, 999);
                 long end = cal.getTimeInMillis();
-
                 for (LocationEntity loc : locs) {
                     List<LocationLogEntity> dayLogs = db.locationDao().getLogsForDay(loc.id, start, end);
                     long totalIn = 0, totalOut = 0;
@@ -126,18 +120,11 @@ public class GpsLoggingService extends Service {
                         for (int i = 0; i < dayLogs.size(); i++) {
                             LocationLogEntity log = dayLogs.get(i);
                             totalIn += (log.exitTime == 0) ? (now - log.entryTime) : log.stayDuration;
-                            if (i > 0) {
-                                long d = log.entryTime - dayLogs.get(i-1).exitTime;
-                                if (d > 0) totalOut += d;
-                            }
+                            if (i > 0) totalOut += (log.entryTime - dayLogs.get(i-1).exitTime);
                         }
                         LocationLogEntity last = dayLogs.get(dayLogs.size() - 1);
-                        if (last.exitTime != 0) {
-                            long d = now - last.exitTime;
-                            if (d > 0) totalOut += d;
-                        }
+                        if (last.exitTime != 0) totalOut += (now - last.exitTime);
                     }
-                    // ✅ 修正：画面と同じフォーマットメソッドを使用
                     resultList.add(new SimpleLog(loc.name, formatToHourMatched(totalIn), formatToHourMatched(totalOut)));
                 }
                 return newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(resultList));
