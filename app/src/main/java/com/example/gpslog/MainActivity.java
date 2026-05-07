@@ -18,6 +18,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -53,12 +54,12 @@ public class MainActivity extends AppCompatActivity {
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
         tvVersion = findViewById(R.id.tvVersion);
-        tvEmpty = findViewById(R.id.tvEmpty); // ✅ 追加
+        tvEmpty = findViewById(R.id.tvEmpty);
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.0.9");
+        tvVersion.setText("Ver: 1.1.0");
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
@@ -215,9 +216,35 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            h.btnUp.setOnClickListener(v -> { if (pos > 0) swap(pos, pos - 1); });
-            h.btnDown.setOnClickListener(v -> { if (pos < masterLocations.size() - 1) swap(pos, pos + 1); });
-            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); });
+            // ✅ 改善：長押しメニューの実装
+            h.itemView.setOnLongClickListener(v -> {
+                CharSequence[] items = {"時間クリア", "上へ移動", "下へ移動", "削除"};
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle(loc.name + " の操作")
+                    .setItems(items, (dialog, which) -> {
+                        switch (which) {
+                            case 0: // 時間クリア
+                                db.locationDao().deleteLogsByLocationId(loc.id);
+                                refreshData();
+                                Toast.makeText(MainActivity.this, "時間をリセットしました", Toast.LENGTH_SHORT).show();
+                                break;
+                            case 1: // 上へ移動
+                                if (pos > 0) swap(pos, pos - 1);
+                                break;
+                            case 2: // 下へ移動
+                                if (pos < masterLocations.size() - 1) swap(pos, pos + 1);
+                                break;
+                            case 3: // 削除
+                                db.locationDao().deleteLogsByLocationId(loc.id); // ログも一緒に完全削除
+                                db.locationDao().delete(loc);
+                                refreshData();
+                                Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show();
+                                break;
+                        }
+                    })
+                    .show();
+                return true;
+            });
         }
         
         @Override public int getItemCount() { return masterLocations.size(); }
@@ -233,7 +260,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     static class LogViewHolder extends RecyclerView.ViewHolder {
-        TextView name, in, out; Button btnUp, btnDown, btnDel;
-        LogViewHolder(View v) { super(v); name = v.findViewById(R.id.tvLogName); in = v.findViewById(R.id.tvLogInTime); out = v.findViewById(R.id.tvLogOutTime); btnUp = v.findViewById(R.id.btnRowUp); btnDown = v.findViewById(R.id.btnRowDown); btnDel = v.findViewById(R.id.btnRowDel); }
+        TextView name, in, out;
+        // ✅ 修正：ボタン群を削除
+        LogViewHolder(View v) { 
+            super(v); 
+            name = v.findViewById(R.id.tvLogName); 
+            in = v.findViewById(R.id.tvLogInTime); 
+            out = v.findViewById(R.id.tvLogOutTime); 
+        }
     }
 }
