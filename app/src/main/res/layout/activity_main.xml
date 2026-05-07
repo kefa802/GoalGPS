@@ -24,28 +24,31 @@
         <RadioButton android:id="@+id/rbHour" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="時" />
     </RadioGroup>
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="#E0E0E0" android:paddingVertical="8dp" android:paddingHorizontal="8dp" android:weightSum="5.5"> 
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="#E0E0E0" android:paddingVertical="8dp" android:paddingHorizontal="8dp" android:weightSum="5.5">
         <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="left|center_vertical" android:textStyle="bold" android:textColor="#333333" android:paddingLeft="8dp"/>
         <TextView android:id="@+id/tvHeaderIn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IN(分)" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
         <TextView android:id="@+id/tvHeaderOut" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="OUT(分)" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
-        <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1.5" /> 
+        <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1.5" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/tvDebug"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#FFF9C4"
-        android:padding="8dp"
-        android:textColor="#D32F2F"
-        android:textStyle="bold"
-        android:textSize="14sp"
-        android:text="デバッグ情報を取得中..." />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvDashboardLogs"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="#E3F2FD" />
+        android:layout_weight="1">
+
+        <TextView
+            android:id="@+id/tvEmptyMessage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="地点がまだ登録されていません。\n左上の「地点登録」から追加してください。"
+            android:textSize="16sp"
+            android:textColor="#888888"
+            android:visibility="gone" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvDashboardLogs"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
 </LinearLayout>
