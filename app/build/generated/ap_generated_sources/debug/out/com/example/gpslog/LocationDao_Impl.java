@@ -5,6 +5,7 @@ import androidx.room.EntityDeletionOrUpdateAdapter;
 import androidx.room.EntityInsertionAdapter;
 import androidx.room.RoomDatabase;
 import androidx.room.RoomSQLiteQuery;
+import androidx.room.SharedSQLiteStatement;
 import androidx.room.util.CursorUtil;
 import androidx.room.util.DBUtil;
 import androidx.sqlite.db.SupportSQLiteStatement;
@@ -29,6 +30,8 @@ public final class LocationDao_Impl implements LocationDao {
   private final EntityDeletionOrUpdateAdapter<LocationEntity> __updateAdapterOfLocationEntity;
 
   private final EntityDeletionOrUpdateAdapter<LocationLogEntity> __updateAdapterOfLocationLogEntity;
+
+  private final SharedSQLiteStatement __preparedStmtOfDeleteLogsByLocationId;
 
   public LocationDao_Impl(RoomDatabase __db) {
     this.__db = __db;
@@ -123,6 +126,13 @@ public final class LocationDao_Impl implements LocationDao {
         stmt.bindLong(7, value.logId);
       }
     };
+    this.__preparedStmtOfDeleteLogsByLocationId = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM visit_logs WHERE locationId = ?";
+        return _query;
+      }
+    };
   }
 
   @Override
@@ -182,6 +192,22 @@ public final class LocationDao_Impl implements LocationDao {
       __db.setTransactionSuccessful();
     } finally {
       __db.endTransaction();
+    }
+  }
+
+  @Override
+  public void deleteLogsByLocationId(final int locId) {
+    __db.assertNotSuspendingTransaction();
+    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteLogsByLocationId.acquire();
+    int _argIndex = 1;
+    _stmt.bindLong(_argIndex, locId);
+    __db.beginTransaction();
+    try {
+      _stmt.executeUpdateDelete();
+      __db.setTransactionSuccessful();
+    } finally {
+      __db.endTransaction();
+      __preparedStmtOfDeleteLogsByLocationId.release(_stmt);
     }
   }
 

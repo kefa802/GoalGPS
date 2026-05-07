@@ -1,6 +1,3 @@
-cd /workspaces/GoalGPS
-
-cat << 'EOF' > bc.sh
 #!/bin/bash
 export ANDROID_HOME="/workspaces/GoalGPS/my-android-sdk"
 export JAVA_HOME="/usr/local/sdkman/candidates/java/21.0.10-ms"
@@ -22,7 +19,3 @@ else
     echo "❌ BUILD FAILED!"
 fi
 exit 0
-EOF
-
-chmod +x bc.sh
-./bc.sh
