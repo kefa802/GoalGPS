@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.1.1");
+        tvVersion.setText("Ver: 1.1.2"); // ✅ バージョン更新
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
@@ -121,10 +121,14 @@ public class MainActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
+    // ✅ 改善：59秒までは確実に 0.00 と表示するロジックに変更
     private String formatDuration(long ms) {
         if (ms < 0) ms = 0;
         long sec = ms / 1000;
-        if (isHourUnit) return String.format(Locale.JAPAN, "%.2f", (double) sec / 3600);
+        if (isHourUnit) {
+            long min = sec / 60; // 秒を切り捨てて「分」ベースにする
+            return String.format(Locale.JAPAN, "%.2f", (double) min / 60.0);
+        }
         return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
     }
 
@@ -182,19 +186,26 @@ public class MainActivity extends AppCompatActivity {
             endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
             long endOfDay = endCal.getTimeInMillis();
 
+            Calendar startCal = (Calendar) displayDate.clone();
+            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
+            long startOfDay = startCal.getTimeInMillis();
+
             LocationLogEntity latest = null;
             try { latest = db.locationDao().getLatestLog(loc.id, endOfDay); } catch(Exception e){}
             
             boolean today = isToday();
             long referenceTime = today ? System.currentTimeMillis() : endOfDay;
 
-            // ✅ 修正：全行共通の完璧な時間計算ロジック
+            // ✅ 修正：データが空でも絶対にカウントダウンさせる完璧なロジック
             if (latest == null) {
-                // データが無い（リセット直後など）場合は 0:00
+                // 1度も入っていない（あるいはリセット直後）場合：朝0時からの全時間がOUTになる
                 h.in.setText("0:00");
                 h.in.setBackgroundColor(Color.TRANSPARENT);
-                h.out.setText("0:00");
-                h.out.setBackgroundColor(Color.TRANSPARENT);
+                
+                long outMs = referenceTime - startOfDay;
+                h.out.setText(formatDuration(outMs));
+                h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
+                
             } else if (latest.exitTime == 0 && today) {
                 // 現在滞在中
                 h.in.setText(formatDuration(referenceTime - latest.entryTime));
@@ -202,10 +213,10 @@ public class MainActivity extends AppCompatActivity {
                 h.out.setText("0:00");
                 h.out.setBackgroundColor(Color.TRANSPARENT);
             } else {
-                // すでに退出済み
+                // 退出済み
                 h.in.setText(formatDuration(latest.stayDuration));
                 h.in.setBackgroundColor(Color.TRANSPARENT);
-
+                
                 long outMs = referenceTime - latest.exitTime;
                 h.out.setText(formatDuration(outMs));
                 h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
