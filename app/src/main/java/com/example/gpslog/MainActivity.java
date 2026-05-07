@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion, tvEmptyMessage;
+    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion, tvDebug;
     private Switch switchRecord;
     private RecyclerView rvLogs;
     private AppDatabase db;
@@ -51,12 +51,11 @@ public class MainActivity extends AppCompatActivity {
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
         tvVersion = findViewById(R.id.tvVersion);
-        tvEmptyMessage = findViewById(R.id.tvEmptyMessage);
+        tvDebug = findViewById(R.id.tvDebug); // ✅ デバッグ用
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        
         tvVersion.setText("Ver: " + BuildConfig.VERSION_NAME);
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
@@ -85,7 +84,6 @@ public class MainActivity extends AppCompatActivity {
                 updateHandler.postDelayed(this, 1000);
             }
         };
-        
         updateDateDisplay();
     }
 
@@ -106,21 +104,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshData() {
-        // ✅ 修正：リストの「器」を変えずに「中身」だけを入れ替える（画面が迷子にならない鉄則）
         List<LocationEntity> freshData = db.locationDao().getAll();
         masterLocations.clear();
+        
+        // ✅ 画面上に裏側の真実をすべて出力する
+        StringBuilder debugInfo = new StringBuilder("【デバッグ情報】\n");
+
         if (freshData != null) {
             masterLocations.addAll(freshData);
-        }
-        
-        if (masterLocations.isEmpty()) {
-            tvEmptyMessage.setVisibility(View.VISIBLE);
-            rvLogs.setVisibility(View.GONE);
+            debugInfo.append("DBから取得した地点数: ").append(freshData.size()).append("件\n");
+            for (LocationEntity loc : freshData) {
+                debugInfo.append(" - ").append(loc.name).append(" (ID:").append(loc.id).append(")\n");
+            }
         } else {
-            tvEmptyMessage.setVisibility(View.GONE);
-            rvLogs.setVisibility(View.VISIBLE);
+            debugInfo.append("DBから取得した地点数: null (エラー)\n");
         }
+
         adapter.notifyDataSetChanged();
+        
+        debugInfo.append("リスト画面が描画しようとしている件数: ").append(adapter.getItemCount()).append("件");
+        
+        tvDebug.setText(debugInfo.toString()); // 黄色いエリアに出力
     }
 
     private String formatDuration(long ms) {
@@ -135,9 +139,6 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         updateUI(isServiceRunning(GpsLoggingService.class));
         refreshData();
-        
-        Toast.makeText(this, masterLocations.size() + "件の地点を読み込みました", Toast.LENGTH_SHORT).show();
-        
         updateHandler.post(updateRunnable);
     }
 
@@ -218,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
 
             h.btnUp.setOnClickListener(v -> { if (pos > 0) swap(pos, pos - 1); });
             h.btnDown.setOnClickListener(v -> { if (pos < masterLocations.size() - 1) swap(pos, pos + 1); });
-            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show();});
+            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); });
         }
         @Override public int getItemCount() { return masterLocations.size(); }
     }
