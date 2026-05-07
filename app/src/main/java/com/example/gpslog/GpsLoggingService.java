@@ -1,8 +1,10 @@
 package com.example.gpslog;
 
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +12,7 @@ import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -45,6 +48,7 @@ public class GpsLoggingService extends Service {
         startForeground(1, getNotification("GPSログ記録中..."));
         server = new MyWebServer(8080);
         try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) { e.printStackTrace(); }
+        
         LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).setMinUpdateIntervalMillis(2000).build();
         locationCallback = new LocationCallback() {
             @Override public void onLocationResult(@NonNull LocationResult locationResult) {
@@ -55,15 +59,29 @@ public class GpsLoggingService extends Service {
         try { fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper()); } catch (SecurityException e) { e.printStackTrace(); }
     }
 
+    // ✅ タスクを閉じられた時に1秒後に自分を再起動する（ゾンビ化）
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        Intent restartServiceIntent = new Intent(getApplicationContext(), this.getClass());
+        restartServiceIntent.setPackage(getPackageName());
+        PendingIntent restartServicePendingIntent = PendingIntent.getService(
+            getApplicationContext(), 1, restartServiceIntent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
+        AlarmManager alarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+        alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, restartServicePendingIntent);
+        super.onTaskRemoved(rootIntent);
+    }
+
     private void handleLocationUpdate(Location location) {
         long now = System.currentTimeMillis();
         android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
         boolean isMock = prefs.getBoolean("is_mock", false);
         double lat = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lat", 0)) : location.getLatitude();
         double lng = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lng", 0)) : location.getLongitude();
+
         Intent intent = new Intent("GPS_LOCATION_UPDATE");
         intent.putExtra("lat", lat); intent.putExtra("lng", lng); intent.putExtra("is_mock", isMock);
         sendBroadcast(intent);
+
         List<LocationEntity> locs = db.locationDao().getAll();
         if (locs != null) {
             for (LocationEntity loc : locs) {
@@ -97,7 +115,7 @@ public class GpsLoggingService extends Service {
         long sec = ms / 1000;
         long min = sec / 60; 
         if (min == 0) return "0.00";
-        return String.format(Locale.US, "%.2f", (double) min / 60.0);
+        return String.format(Locale.US, "%.2f", (double) min / 60.0); // ✅ タイポ修正済み
     }
 
     private class MyWebServer extends NanoHTTPD {
@@ -132,8 +150,7 @@ public class GpsLoggingService extends Service {
             } else {
                 response = newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Not Found");
             }
-            // ✅ 外部サイトからのアクセスを許可するヘッダーを追加
-            response.addHeader("Access-Control-Allow-Origin", "*");
+            response.addHeader("Access-Control-Allow-Origin", "*"); // ✅ CORS対応
             return response;
         }
     }
