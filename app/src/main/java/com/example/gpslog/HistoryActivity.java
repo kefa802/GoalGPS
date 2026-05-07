@@ -22,9 +22,14 @@ public class HistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_history);
+
         rv = findViewById(R.id.rvHistory);
         rv.setLayoutManager(new LinearLayoutManager(this));
-        dao = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build().locationDao();
+
+        AppDatabase db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
+                .allowMainThreadQueries().build();
+        dao = db.locationDao();
+
         refresh();
     }
 
@@ -48,14 +53,22 @@ public class HistoryActivity extends AppCompatActivity {
     private void swap(int f, int t) {
         LocationEntity from = list.get(f);
         LocationEntity to = list.get(t);
-        int temp = from.displayOrder;
+        int tempOrder = from.displayOrder;
         from.displayOrder = to.displayOrder;
-        to.displayOrder = temp;
-        dao.update(from); dao.update(to);
+        to.displayOrder = tempOrder;
+        dao.update(from);
+        dao.update(to);
         refresh();
     }
+
     static class VH extends RecyclerView.ViewHolder {
         TextView name; Button btnUp, btnDown, btnDel;
-        VH(View v) { super(v); name = v.findViewById(R.id.tvLocationName); btnUp = v.findViewById(R.id.btnUp); btnDown = v.findViewById(R.id.btnDown); btnDel = v.findViewById(R.id.btnDelete); }
+        VH(View v) {
+            super(v);
+            name = v.findViewById(R.id.tvLocationName);
+            btnUp = v.findViewById(R.id.btnUp);
+            btnDown = v.findViewById(R.id.btnDown);
+            btnDel = v.findViewById(R.id.btnDelete);
+        }
     }
 }
