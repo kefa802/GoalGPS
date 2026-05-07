@@ -1,64 +1,72 @@
-package com.example.gpslog;
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5">
 
-import android.Manifest;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import android.os.Bundle;
-import android.widget.Button;
-import android.widget.TextView;
-import android.widget.Toast;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
+    <TextView
+        android:id="@+id/tvStatusBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="オフライン"
+        android:textColor="#FFFFFF"
+        android:padding="12dp"
+        android:gravity="center"
+        android:background="#9E9E9E" />
 
-public class MainActivity extends AppCompatActivity {
-    private TextView tvStatus;
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:background="#FFFFFF">
+        <Switch
+            android:id="@+id/switchRecord"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Online "
+            android:layout_alignParentRight="true" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button android:id="@+id/btnStart" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="スタート" android:layout_marginRight="4dp"/>
+            <Button android:id="@+id/btnStop" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ストップ" android:layout_marginRight="4dp"/>
+            <Button android:id="@+id/btnRegister" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="地点登録" />
+        </LinearLayout>
+    </RelativeLayout>
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="8dp">
+        <TextView android:id="@+id/tvDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2026/05/07" android:textSize="18sp" android:textStyle="bold" />
+    </LinearLayout>
 
-        tvStatus = findViewById(R.id.tvStatus);
-        Button btnStart = findViewById(R.id.btnStart);
-        Button btnStop = findViewById(R.id.btnStop);
-        Button btnRegister = findViewById(R.id.btnRegister);
-        Button btnHistory = findViewById(R.id.btnHistory);
+    <RadioGroup
+        android:id="@+id/rgUnit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_gravity="right"
+        android:layout_marginRight="16dp">
+        <RadioButton android:id="@+id/rbMin" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="分" android:checked="true" />
+        <RadioButton android:id="@+id/rbHour" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="時" />
+    </RadioGroup>
 
-        // スタートボタン：自動記録サービスを開始
-        btnStart.setOnClickListener(v -> {
-            if (checkPermissions()) {
-                Intent serviceIntent = new Intent(this, GpsLoggingService.class);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(serviceIntent);
-                } else {
-                    startService(serviceIntent);
-                }
-                tvStatus.setText("自動記録モード：稼働中");
-                Toast.makeText(this, "自動打刻を開始しました", Toast.LENGTH_SHORT).show();
-            }
-        });
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#E0E0E0"
+        android:padding="8dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="center" />
+        <TextView android:id="@+id/tvHeaderIn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IN時間(分)" android:gravity="center" />
+        <TextView android:id="@+id/tvHeaderOut" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="OUT時間(分)" android:gravity="center" />
+    </LinearLayout>
 
-        // ストップボタン：サービスを停止
-        btnStop.setOnClickListener(v -> {
-            stopService(new Intent(this, GpsLoggingService.class));
-            tvStatus.setText("GoalGPS 待機中");
-            Toast.makeText(this, "自動打刻を停止しました", Toast.LENGTH_SHORT).show();
-        });
-
-        btnRegister.setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
-        btnHistory.setOnClickListener(v -> startActivity(new Intent(this, HistoryActivity.class)));
-    }
-
-    private boolean checkPermissions() {
-        // Android 14では通知と位置情報の権限が必要です
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.POST_NOTIFICATIONS
-            }, 1);
-            return false;
-        }
-        return true;
-    }
-}
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvDashboardLogs"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+</LinearLayout>
