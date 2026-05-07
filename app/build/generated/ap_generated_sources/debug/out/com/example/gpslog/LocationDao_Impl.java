@@ -33,6 +33,8 @@ public final class LocationDao_Impl implements LocationDao {
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteLogsByLocationId;
 
+  private final SharedSQLiteStatement __preparedStmtOfDeleteLogsInRange;
+
   public LocationDao_Impl(RoomDatabase __db) {
     this.__db = __db;
     this.__insertionAdapterOfLocationEntity = new EntityInsertionAdapter<LocationEntity>(__db) {
@@ -133,6 +135,13 @@ public final class LocationDao_Impl implements LocationDao {
         return _query;
       }
     };
+    this.__preparedStmtOfDeleteLogsInRange = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM visit_logs WHERE locationId = ? AND entryTime >= ? AND entryTime <= ?";
+        return _query;
+      }
+    };
   }
 
   @Override
@@ -208,6 +217,26 @@ public final class LocationDao_Impl implements LocationDao {
     } finally {
       __db.endTransaction();
       __preparedStmtOfDeleteLogsByLocationId.release(_stmt);
+    }
+  }
+
+  @Override
+  public void deleteLogsInRange(final int locId, final long startTime, final long endTime) {
+    __db.assertNotSuspendingTransaction();
+    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteLogsInRange.acquire();
+    int _argIndex = 1;
+    _stmt.bindLong(_argIndex, locId);
+    _argIndex = 2;
+    _stmt.bindLong(_argIndex, startTime);
+    _argIndex = 3;
+    _stmt.bindLong(_argIndex, endTime);
+    __db.beginTransaction();
+    try {
+      _stmt.executeUpdateDelete();
+      __db.setTransactionSuccessful();
+    } finally {
+      __db.endTransaction();
+      __preparedStmtOfDeleteLogsInRange.release(_stmt);
     }
   }
 
@@ -351,6 +380,49 @@ public final class LocationDao_Impl implements LocationDao {
         _result.stayDuration = _cursor.getLong(_cursorIndexOfStayDuration);
       } else {
         _result = null;
+      }
+      return _result;
+    } finally {
+      _cursor.close();
+      _statement.release();
+    }
+  }
+
+  @Override
+  public List<LocationLogEntity> getLogsForDay(final int locId, final long startOfDay,
+      final long endOfDay) {
+    final String _sql = "SELECT * FROM visit_logs WHERE locationId = ? AND entryTime >= ? AND entryTime <= ? ORDER BY entryTime ASC";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 3);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, locId);
+    _argIndex = 2;
+    _statement.bindLong(_argIndex, startOfDay);
+    _argIndex = 3;
+    _statement.bindLong(_argIndex, endOfDay);
+    __db.assertNotSuspendingTransaction();
+    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+    try {
+      final int _cursorIndexOfLogId = CursorUtil.getColumnIndexOrThrow(_cursor, "logId");
+      final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
+      final int _cursorIndexOfLocationName = CursorUtil.getColumnIndexOrThrow(_cursor, "locationName");
+      final int _cursorIndexOfEntryTime = CursorUtil.getColumnIndexOrThrow(_cursor, "entryTime");
+      final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
+      final int _cursorIndexOfStayDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "stayDuration");
+      final List<LocationLogEntity> _result = new ArrayList<LocationLogEntity>(_cursor.getCount());
+      while(_cursor.moveToNext()) {
+        final LocationLogEntity _item;
+        _item = new LocationLogEntity();
+        _item.logId = _cursor.getInt(_cursorIndexOfLogId);
+        _item.locationId = _cursor.getInt(_cursorIndexOfLocationId);
+        if (_cursor.isNull(_cursorIndexOfLocationName)) {
+          _item.locationName = null;
+        } else {
+          _item.locationName = _cursor.getString(_cursorIndexOfLocationName);
+        }
+        _item.entryTime = _cursor.getLong(_cursorIndexOfEntryTime);
+        _item.exitTime = _cursor.getLong(_cursorIndexOfExitTime);
+        _item.stayDuration = _cursor.getLong(_cursorIndexOfStayDuration);
+        _result.add(_item);
       }
       return _result;
     } finally {
