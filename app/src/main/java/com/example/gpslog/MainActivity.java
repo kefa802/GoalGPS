@@ -11,17 +11,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -33,14 +30,13 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity {
     private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion, tvDebugCount;
     private Switch switchRecord;
-    private RecyclerView rvLogs;
+    private LinearLayout llLogContainer; // ✅ RecyclerViewから変更
     private AppDatabase db;
     private boolean isHourUnit = false;
     private Calendar displayDate = Calendar.getInstance();
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable;
     private List<LocationEntity> masterLocations = new ArrayList<>();
-    private LocationAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,16 +48,12 @@ public class MainActivity extends AppCompatActivity {
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
         tvVersion = findViewById(R.id.tvVersion);
-        tvDebugCount = findViewById(R.id.tvDebugCount); // ✅ 追加
+        tvDebugCount = findViewById(R.id.tvDebugCount);
         switchRecord = findViewById(R.id.switchRecord);
-        rvLogs = findViewById(R.id.rvDashboardLogs);
+        llLogContainer = findViewById(R.id.llLogContainer); // ✅ 追加
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
         tvVersion.setText("Ver: " + BuildConfig.VERSION_NAME);
-
-        rvLogs.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new LocationAdapter();
-        rvLogs.setAdapter(adapter);
 
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1));
         findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
@@ -82,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
         updateRunnable = new Runnable() {
             @Override public void run() {
                 if (isToday()) {
-                    runOnUiThread(() -> adapter.notifyDataSetChanged());
+                    runOnUiThread(() -> updateListUI()); // ✅ 毎秒UIを更新
                 }
                 updateHandler.postDelayed(this, 1000);
             }
@@ -114,10 +106,94 @@ public class MainActivity extends AppCompatActivity {
         }
         
         runOnUiThread(() -> {
-            // ✅ DBから取得した生データの件数を画面に表示
             tvDebugCount.setText("🚨 データベース内の地点数: " + masterLocations.size() + " 件");
-            adapter.notifyDataSetChanged();
+            updateListUI(); // ✅ データ取得後にUIを描画
         });
+    }
+
+    // ✅ RecyclerViewを排除し、直接画面を生成・更新する絶対確実なメソッド
+    private void updateListUI() {
+        // データ件数と画面の箱の数が違えば、箱を作り直す
+        if (llLogContainer.getChildCount() != masterLocations.size()) {
+            llLogContainer.removeAllViews();
+            for (int i = 0; i < masterLocations.size(); i++) {
+                View v = LayoutInflater.from(this).inflate(R.layout.item_log, llLogContainer, false);
+                llLogContainer.addView(v);
+            }
+        }
+
+        Calendar endCal = (Calendar) displayDate.clone();
+        endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
+        long endOfDay = endCal.getTimeInMillis();
+
+        Calendar startCal = (Calendar) displayDate.clone();
+        startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
+        long startOfDay = startCal.getTimeInMillis();
+
+        boolean today = isToday();
+        long referenceTime = today ? System.currentTimeMillis() : endOfDay;
+
+        // 生成された箱（View）に1件ずつデータを流し込む
+        for (int pos = 0; pos < masterLocations.size(); pos++) {
+            LocationEntity loc = masterLocations.get(pos);
+            View v = llLogContainer.getChildAt(pos);
+
+            TextView tvName = v.findViewById(R.id.tvLogName);
+            TextView tvIn = v.findViewById(R.id.tvLogInTime);
+            TextView tvOut = v.findViewById(R.id.tvLogOutTime);
+            Button btnUp = v.findViewById(R.id.btnRowUp);
+            Button btnDown = v.findViewById(R.id.btnRowDown);
+            Button btnDel = v.findViewById(R.id.btnRowDel);
+
+            tvName.setText(loc.name != null ? loc.name : "不明な地点");
+
+            LocationLogEntity latest = null;
+            try {
+                latest = db.locationDao().getLatestLog(loc.id, endOfDay);
+            } catch (Exception e) {}
+
+            if (latest != null && latest.exitTime == 0 && today) {
+                tvIn.setText(formatDuration(referenceTime - latest.entryTime));
+                tvIn.setBackgroundColor(Color.parseColor("#C8E6C9"));
+                tvOut.setText("0:00");
+                tvOut.setBackgroundColor(Color.TRANSPARENT);
+            } else {
+                tvIn.setBackgroundColor(Color.TRANSPARENT);
+                tvIn.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
+                
+                if (pos == 0) {
+                    tvOut.setText("0:00");
+                    tvOut.setBackgroundColor(Color.TRANSPARENT);
+                } else {
+                    long outMs;
+                    if (latest != null) {
+                        outMs = referenceTime - (latest.exitTime == 0 ? referenceTime : latest.exitTime);
+                    } else {
+                        outMs = referenceTime - startOfDay;
+                    }
+                    tvOut.setText(formatDuration(outMs));
+                    tvOut.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
+                }
+            }
+
+            int finalPos = pos;
+            btnUp.setOnClickListener(btn -> { if (finalPos > 0) swap(finalPos, finalPos - 1); });
+            btnDown.setOnClickListener(btn -> { if (finalPos < masterLocations.size() - 1) swap(finalPos, finalPos + 1); });
+            btnDel.setOnClickListener(btn -> { 
+                db.locationDao().delete(loc); 
+                refreshData(); 
+                Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show();
+            });
+        }
+    }
+
+    private void swap(int f, int t) {
+        LocationEntity from = masterLocations.get(f), to = masterLocations.get(t);
+        int temp = from.displayOrder;
+        from.displayOrder = to.displayOrder;
+        to.displayOrder = temp;
+        db.locationDao().update(from); db.locationDao().update(to);
+        refreshData();
     }
 
     private String formatDuration(long ms) {
@@ -174,73 +250,5 @@ public class MainActivity extends AppCompatActivity {
             if (sc.getName().equals(s.service.getClassName())) return true;
         }
         return false;
-    }
-
-    class LocationAdapter extends RecyclerView.Adapter<LogViewHolder> {
-        @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
-            return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
-        }
-
-        @Override public void onBindViewHolder(@NonNull LogViewHolder h, int pos) {
-            if (pos >= masterLocations.size()) return;
-            LocationEntity loc = masterLocations.get(pos);
-
-            Calendar endCal = (Calendar) displayDate.clone();
-            endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
-            long endOfDay = endCal.getTimeInMillis();
-
-            Calendar startCal = (Calendar) displayDate.clone();
-            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
-            long startOfDay = startCal.getTimeInMillis();
-
-            LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, endOfDay);
-            h.name.setText(loc.name != null ? loc.name : "不明な地点");
-            
-            boolean today = isToday();
-            long referenceTime = today ? System.currentTimeMillis() : endOfDay;
-
-            if (latest != null && latest.exitTime == 0 && today) {
-                h.in.setText(formatDuration(referenceTime - latest.entryTime));
-                h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
-                h.out.setText("0:00");
-                h.out.setBackgroundColor(Color.TRANSPARENT);
-            } else {
-                h.in.setBackgroundColor(Color.TRANSPARENT);
-                h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
-                
-                if (pos == 0) {
-                    h.out.setText("0:00");
-                    h.out.setBackgroundColor(Color.TRANSPARENT);
-                } else {
-                    long outMs;
-                    if (latest != null) {
-                        outMs = referenceTime - (latest.exitTime == 0 ? referenceTime : latest.exitTime);
-                    } else {
-                        outMs = referenceTime - startOfDay;
-                    }
-                    h.out.setText(formatDuration(outMs));
-                    h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
-                }
-            }
-
-            h.btnUp.setOnClickListener(v -> { if (pos > 0) swap(pos, pos - 1); });
-            h.btnDown.setOnClickListener(v -> { if (pos < masterLocations.size() - 1) swap(pos, pos + 1); });
-            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show();});
-        }
-        @Override public int getItemCount() { return masterLocations.size(); }
-    }
-
-    private void swap(int f, int t) {
-        LocationEntity from = masterLocations.get(f), to = masterLocations.get(t);
-        int temp = from.displayOrder;
-        from.displayOrder = to.displayOrder;
-        to.displayOrder = temp;
-        db.locationDao().update(from); db.locationDao().update(to);
-        refreshData();
-    }
-
-    static class LogViewHolder extends RecyclerView.ViewHolder {
-        TextView name, in, out; Button btnUp, btnDown, btnDel;
-        LogViewHolder(View v) { super(v); name = v.findViewById(R.id.tvLogName); in = v.findViewById(R.id.tvLogInTime); out = v.findViewById(R.id.tvLogOutTime); btnUp = v.findViewById(R.id.btnRowUp); btnDown = v.findViewById(R.id.btnRowDown); btnDel = v.findViewById(R.id.btnRowDel); }
     }
 }
