@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion;
+    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion, tvDebugCount;
     private Switch switchRecord;
     private RecyclerView rvLogs;
     private AppDatabase db;
@@ -52,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
         tvVersion = findViewById(R.id.tvVersion);
+        tvDebugCount = findViewById(R.id.tvDebugCount); // ✅ 追加
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
@@ -112,11 +113,10 @@ public class MainActivity extends AppCompatActivity {
             masterLocations.addAll(freshData);
         }
         
-        // ✅ 修正：画面更新をシステムに強制的に割り込ませて確実に描画させる
         runOnUiThread(() -> {
+            // ✅ DBから取得した生データの件数を画面に表示
+            tvDebugCount.setText("🚨 データベース内の地点数: " + masterLocations.size() + " 件");
             adapter.notifyDataSetChanged();
-            // 確認用ポップアップ
-            Toast.makeText(MainActivity.this, masterLocations.size() + "件読込済", Toast.LENGTH_SHORT).show();
         });
     }
 
@@ -194,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
             long startOfDay = startCal.getTimeInMillis();
 
             LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, endOfDay);
-            h.name.setText(loc.name != null ? loc.name : "不明な地点"); // ✅ 名前が空の時のクラッシュ防止
+            h.name.setText(loc.name != null ? loc.name : "不明な地点");
             
             boolean today = isToday();
             long referenceTime = today ? System.currentTimeMillis() : endOfDay;
