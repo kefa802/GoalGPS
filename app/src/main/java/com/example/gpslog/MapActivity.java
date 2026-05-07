@@ -1,5 +1,7 @@
 package com.example.gpslog;
 
+import android.app.ActivityManager;
+import android.content.Context;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -39,7 +41,8 @@ public class MapActivity extends AppCompatActivity {
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
 
-        loadSavedMarkers();
+        loadSavedMarkers(); // ✅ アイコンが変わって表示される
+        
         GeoPoint startPoint = new GeoPoint(35.7295, 139.7109);
         mapView.getController().setZoom(17.0);
         mapView.getController().setCenter(startPoint);
@@ -49,8 +52,12 @@ public class MapActivity extends AppCompatActivity {
         currentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
         mapView.getOverlays().add(currentMarker);
 
-        // 現在地へジャンプ ✅
         btnJump.setOnClickListener(v -> {
+            // ✅ 改善①：サービス未起動時のメッセージ
+            if (!isServiceRunning(GpsLoggingService.class)) {
+                Toast.makeText(this, "現在地を取得するには、メイン画面でOnlineをONにしてください", Toast.LENGTH_LONG).show();
+                return;
+            }
             try {
                 fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).addOnSuccessListener(location -> {
                     if (location != null) {
@@ -79,6 +86,8 @@ public class MapActivity extends AppCompatActivity {
             Marker m = new Marker(mapView);
             m.setPosition(new GeoPoint(loc.latitude, loc.longitude));
             m.setTitle(loc.name);
+            // ✅ 改善④：保存済み地点のアイコンを変更（★や旗など）
+            m.setIcon(getResources().getDrawable(android.R.drawable.btn_star_big_on));
             mapView.getOverlays().add(m);
         }
     }
@@ -95,11 +104,22 @@ public class MapActivity extends AppCompatActivity {
             entity.latitude = currentMarker.getPosition().getLatitude();
             entity.longitude = currentMarker.getPosition().getLongitude();
             db.locationDao().insert(entity);
-            Toast.makeText(this, "保存しました", Toast.LENGTH_SHORT).show();
-            finish();
+            Toast.makeText(this, "保存しました。続けて登録できます", Toast.LENGTH_SHORT).show();
+            
+            // ✅ 改善③：finish()を削除し、マップを再描画してピンを追加
+            loadSavedMarkers();
+            mapView.invalidate();
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private boolean isServiceRunning(Class<?> sc) {
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo s : am.getRunningServices(Integer.MAX_VALUE)) {
+            if (sc.getName().equals(s.service.getClassName())) return true;
+        }
+        return false;
     }
 
     @Override public void onResume() { super.onResume(); mapView.onResume(); }
