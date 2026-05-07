@@ -1,27 +1,10 @@
-import java.util.Properties
-
 plugins {
     id 'com.android.application'
 }
 
-// ✅ 修正：タイムラグを無くし、即座にカウントアップして同期させる
-def versionPropsFile = file('../version.properties')
-def Properties versionProps = new Properties()
-
-if (versionPropsFile.exists()) {
-    versionProps.load(new FileInputStream(versionPropsFile))
-} else {
-    versionProps['VERSION_CODE'] = '0'
-    versionProps['VERSION_NAME'] = '1.0.0'
-}
-
-// ビルドが走った瞬間に無条件で+1して保存
-def currentCode = versionProps['VERSION_CODE'].toInteger()
-versionProps['VERSION_CODE'] = (currentCode + 1).toString()
-versionProps.store(versionPropsFile.newWriter(), null)
-
-def vCode = versionProps['VERSION_CODE'].toInteger()
-def vName = versionProps['VERSION_NAME']
+// ✅ 究極のバージョン管理：現在時刻を使う（ファイル不要で絶対に巻き戻らない）
+def vCode = (System.currentTimeMillis() / 1000).toInteger()
+def vName = "1.0." + new Date().format("MMdd.HHmm") // 例: 1.0.0507.1530
 
 android {
     namespace 'com.example.gpslog'
@@ -41,7 +24,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField "String", "VERSION_NAME", "\"${vName}.${vCode}\""
+            buildConfigField "String", "VERSION_NAME", "\"${vName}\""
         }
     }
 
