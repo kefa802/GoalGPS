@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -34,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView rvLogs;
     private AppDatabase db;
     private boolean isHourUnit = false;
+    private Calendar displayDate = Calendar.getInstance();
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable;
     private List<LocationEntity> masterLocations = new ArrayList<>();
@@ -53,14 +55,16 @@ public class MainActivity extends AppCompatActivity {
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(new Date()));
         
-        // ✅ バージョン表示 (1.0.0.12 のように表示されます)
+        // ✅ ビルド毎に上がるバージョン番号を表示
         tvVersion.setText("Ver: " + BuildConfig.VERSION_NAME);
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LocationAdapter();
         rvLogs.setAdapter(adapter);
+
+        findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1));
+        findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
 
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> {
             isHourUnit = (id == R.id.rbHour);
@@ -77,10 +81,28 @@ public class MainActivity extends AppCompatActivity {
 
         updateRunnable = new Runnable() {
             @Override public void run() {
-                adapter.notifyDataSetChanged();
+                if (isToday()) adapter.notifyDataSetChanged();
                 updateHandler.postDelayed(this, 1000);
             }
         };
+        
+        updateDateDisplay();
+    }
+
+    private void changeDate(int amount) {
+        displayDate.add(Calendar.DATE, amount);
+        updateDateDisplay();
+    }
+
+    private void updateDateDisplay() {
+        tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(displayDate.getTime()));
+        refreshData();
+    }
+
+    private boolean isToday() {
+        Calendar today = Calendar.getInstance();
+        return today.get(Calendar.YEAR) == displayDate.get(Calendar.YEAR) &&
+               today.get(Calendar.DAY_OF_YEAR) == displayDate.get(Calendar.DAY_OF_YEAR);
     }
 
     private void refreshData() {
@@ -99,7 +121,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         updateUI(isServiceRunning(GpsLoggingService.class));
-        refreshData(); // 画面に戻った時に必ずデータを読み直す ✅
+        refreshData();
         updateHandler.post(updateRunnable);
     }
 
@@ -139,35 +161,49 @@ public class MainActivity extends AppCompatActivity {
         @Override public void onBindViewHolder(@NonNull LogViewHolder h, int pos) {
             if (pos >= masterLocations.size()) return;
             LocationEntity loc = masterLocations.get(pos);
-            LocationLogEntity latest = db.locationDao().getLatestLog(loc.id);
-            h.name.setText(loc.name);
-            long now = System.currentTimeMillis();
 
-            if (latest != null && latest.exitTime == 0) {
-                h.in.setText(formatDuration(now - latest.entryTime));
+            Calendar endCal = (Calendar) displayDate.clone();
+            endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
+            long endOfDay = endCal.getTimeInMillis();
+
+            Calendar startCal = (Calendar) displayDate.clone();
+            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
+            long startOfDay = startCal.getTimeInMillis();
+
+            // ✅ エラー修正：getLatestLog に endOfDay（時間）を正しく渡す
+            LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, endOfDay);
+            h.name.setText(loc.name);
+            
+            boolean today = isToday();
+            long referenceTime = today ? System.currentTimeMillis() : endOfDay;
+
+            if (latest != null && latest.exitTime == 0 && today) {
+                h.in.setText(formatDuration(referenceTime - latest.entryTime));
                 h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
                 h.out.setText("0:00");
                 h.out.setBackgroundColor(Color.TRANSPARENT);
             } else {
                 h.in.setBackgroundColor(Color.TRANSPARENT);
                 h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
+                
                 if (pos == 0) {
                     h.out.setText("0:00");
                     h.out.setBackgroundColor(Color.TRANSPARENT);
                 } else {
+                    long outMs;
                     if (latest != null) {
-                        h.out.setText(formatDuration(now - latest.exitTime));
-                        h.out.setBackgroundColor(Color.parseColor("#FFCDD2"));
+                        outMs = referenceTime - (latest.exitTime == 0 ? referenceTime : latest.exitTime);
                     } else {
-                        h.out.setText("始動");
-                        h.out.setBackgroundColor(Color.TRANSPARENT);
+                        outMs = referenceTime - startOfDay;
                     }
+                    h.out.setText(formatDuration(outMs));
+                    h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
                 }
             }
 
             h.btnUp.setOnClickListener(v -> { if (pos > 0) swap(pos, pos - 1); });
             h.btnDown.setOnClickListener(v -> { if (pos < masterLocations.size() - 1) swap(pos, pos + 1); });
-            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); });
+            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show();});
         }
         @Override public int getItemCount() { return masterLocations.size(); }
     }
