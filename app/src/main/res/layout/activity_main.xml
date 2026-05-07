@@ -11,88 +11,62 @@
         android:layout_height="wrap_content"
         android:text="オフライン"
         android:textColor="#FFFFFF"
-        android:textStyle="bold"
-        android:textSize="16sp"
         android:padding="12dp"
         android:gravity="center"
-        android:background="#9E9E9E" /> <RelativeLayout
+        android:background="#9E9E9E" />
+
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="16dp"
-        android:background="#FFFFFF"
-        android:elevation="4dp">
-
+        android:background="#FFFFFF">
         <Switch
             android:id="@+id/switchRecord"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="自動記録 "
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:layout_centerVertical="true" />
-
-        <Button
-            android:id="@+id/btnRegister"
+            android:text="Online "
+            android:layout_alignParentRight="true" />
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="地点登録"
-            android:layout_alignParentRight="true"
-            android:layout_centerVertical="true"
-            android:backgroundTint="#2196F3" />
+            android:orientation="horizontal">
+            <Button android:id="@+id/btnStart" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="スタート" android:layout_marginRight="4dp"/>
+            <Button android:id="@+id/btnStop" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ストップ" android:layout_marginRight="4dp"/>
+            <Button android:id="@+id/btnRegister" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="地点登録" />
+        </LinearLayout>
     </RelativeLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="center"
-        android:padding="16dp">
-
-        <TextView
-            android:id="@+id/tvDate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="2026/05/07"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+        android:padding="8dp">
+        <TextView android:id="@+id/tvDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2026/05/07" android:textSize="18sp" android:textStyle="bold" />
     </LinearLayout>
+
+    <RadioGroup
+        android:id="@+id/rgUnit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_gravity="right"
+        android:layout_marginRight="16dp">
+        <RadioButton android:id="@+id/rbMin" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="分" android:checked="true" />
+        <RadioButton android:id="@+id/rbHour" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="時" />
+    </RadioGroup>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:background="#E0E0E0"
-        android:padding="12dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="2"
-            android:text="登録地点"
-            android:textStyle="bold"
-            android:gravity="center" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="IN時間"
-            android:textStyle="bold"
-            android:gravity="center" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="OUT時間"
-            android:textStyle="bold"
-            android:gravity="center" />
+        android:padding="8dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="center" />
+        <TextView android:id="@+id/tvHeaderIn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IN時間(分)" android:gravity="center" />
+        <TextView android:id="@+id/tvHeaderOut" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="OUT時間(分)" android:gravity="center" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvDashboardLogs"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="8dp" />
-
+        android:layout_height="match_parent" />
 </LinearLayout>
