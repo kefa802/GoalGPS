@@ -23,7 +23,10 @@ public interface LocationDao {
     @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND exitTime = 0 LIMIT 1")
     LocationLogEntity getActiveLog(int locId);
 
-    // ✅ 追加：特定の地点の時間をすべてリセット（削除）する命令
     @Query("DELETE FROM visit_logs WHERE locationId = :locId")
     void deleteLogsByLocationId(int locId);
+
+    // ✅ ③ 積算時間計算用：特定の日のログを「すべて」取得する
+    @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND entryTime >= :startOfDay AND entryTime <= :endOfDay ORDER BY entryTime ASC")
+    List<LocationLogEntity> getLogsForDay(int locId, long startOfDay, long endOfDay);
 }
