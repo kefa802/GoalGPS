@@ -91,11 +91,8 @@ public class GpsLoggingService extends Service {
         }
     }
 
-    // 外部出力用のシンプル構造体
     private static class SimpleLog {
-        String name;
-        String in_hour;
-        String out_hour;
+        String name; String in_hour; String out_hour;
         SimpleLog(String n, String i, String o) { this.name = n; this.in_hour = i; this.out_hour = o; }
     }
 
@@ -106,22 +103,21 @@ public class GpsLoggingService extends Service {
             if ("/logs".equals(session.getUri())) {
                 List<SimpleLog> resultList = new ArrayList<>();
                 List<LocationEntity> locs = db.locationDao().getAll();
-                
                 Calendar cal = Calendar.getInstance();
-                cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
-                long startOfDay = cal.getTimeInMillis();
-                cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59); cal.set(Calendar.SECOND, 59); cal.set(Calendar.MILLISECOND, 999);
-                long endOfDay = cal.getTimeInMillis();
                 long now = System.currentTimeMillis();
+                cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
+                long start = cal.getTimeInMillis();
+                cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59); cal.set(Calendar.SECOND, 59); cal.set(Calendar.MILLISECOND, 999);
+                long end = cal.getTimeInMillis();
 
                 for (LocationEntity loc : locs) {
-                    List<LocationLogEntity> dayLogs = db.locationDao().getLogsForDay(loc.id, startOfDay, endOfDay);
+                    List<LocationLogEntity> dayLogs = db.locationDao().getLogsForDay(loc.id, start, end);
                     long totalIn = 0, totalOut = 0;
                     if (dayLogs != null && !dayLogs.isEmpty()) {
                         for (int i = 0; i < dayLogs.size(); i++) {
                             LocationLogEntity log = dayLogs.get(i);
                             totalIn += (log.exitTime == 0) ? (now - log.entryTime) : log.stayDuration;
-                            if (i > 0) totalOut += (log.entryTime - dayLogs.get(i - 1).exitTime);
+                            if (i > 0) totalOut += (log.entryTime - dayLogs.get(i-1).exitTime);
                         }
                         LocationLogEntity last = dayLogs.get(dayLogs.size() - 1);
                         if (last.exitTime != 0) totalOut += (now - last.exitTime);
