@@ -15,7 +15,6 @@ import android.widget.Button;
 import android.widget.RadioGroup;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -33,10 +32,12 @@ public class MainActivity extends AppCompatActivity {
     private Switch switchRecord;
     private RecyclerView rvLogs;
     private AppDatabase db;
+    private LogAdapter adapter;
     private boolean isHourUnit = false;
-    private Calendar displayDate = Calendar.getInstance(); // ✅ 表示中の日付
+    private Calendar displayDate = Calendar.getInstance();
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable;
+    private List<LocationEntity> masterLocations;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,13 +53,19 @@ public class MainActivity extends AppCompatActivity {
         
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
 
-        // ✅ 改善④：日付移動ボタンのイベント
+        // アダプターを1回だけセット（消えるバグの修正）
+        rvLogs.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new LogAdapter();
+        rvLogs.setAdapter(adapter);
+
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1));
         findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
 
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> {
             isHourUnit = (id == R.id.rbHour);
-            refreshUI();
+            String unit = isHourUnit ? "(時)" : "(分)";
+            tvHeaderIn.setText("IN" + unit); tvHeaderOut.setText("OUT" + unit);
+            refreshDashboard();
         });
 
         switchRecord.setOnCheckedChangeListener((v, isChecked) -> {
@@ -66,10 +73,9 @@ public class MainActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
-        rvLogs.setLayoutManager(new LinearLayoutManager(this));
 
         updateRunnable = () -> {
-            if (isToday()) refreshDashboard(); // 今日ならリアルタイム更新
+            if (isToday()) refreshDashboard(); 
             updateHandler.postDelayed(updateRunnable, 1000);
         };
         updateDateDisplay();
@@ -87,72 +93,86 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean isToday() {
         Calendar today = Calendar.getInstance();
-        return today.get(Calendar.YEAR) == displayDate.get(Calendar.YEAR) &&
-               today.get(Calendar.DAY_OF_YEAR) == displayDate.get(Calendar.DAY_OF_YEAR);
+        return today.get(Calendar.YEAR) == displayDate.get(Calendar.YEAR) && today.get(Calendar.DAY_OF_YEAR) == displayDate.get(Calendar.DAY_OF_YEAR);
     }
 
     private void refreshDashboard() {
-        List<LocationEntity> masterLocations = db.locationDao().getAll();
-        long now = System.currentTimeMillis();
-        
-        rvLogs.setAdapter(new RecyclerView.Adapter<LogViewHolder>() {
-            @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
-                return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
-            }
-
-            @Override public void onBindViewHolder(@NonNull LogViewHolder h, int p) {
-                LocationEntity loc = masterLocations.get(p);
-                LocationLogEntity latest = db.locationDao().getLatestLog(loc.id);
-                h.name.setText(loc.name);
-
-                if (latest != null && latest.exitTime == 0) {
-                    // ✅ 滞在中
-                    h.in.setText(formatDuration(now - latest.entryTime));
-                    h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
-                    h.out.setText("--:--");
-                    h.out.setBackgroundColor(Color.TRANSPARENT);
-                } else {
-                    // ✅ 改善② & ③：地点の外にいる場合
-                    h.in.setBackgroundColor(Color.TRANSPARENT);
-                    if (p == 0) {
-                        // 1つ目の地点（Homeなど）なら 0:00
-                        h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
-                        h.out.setText("0:00");
-                    } else {
-                        // 2つ目以降：INは 0:00 (または前回の時間)、OUTをカウントアップ
-                        h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
-                        h.out.setText(latest != null ? formatDuration(now - latest.exitTime) : "始動");
-                        h.out.setBackgroundColor(Color.parseColor("#FFCDD2"));
-                    }
-                }
-
-                h.btnUp.setOnClickListener(v -> { if (p > 0) swap(p, p - 1); });
-                h.btnDown.setOnClickListener(v -> { if (p < masterLocations.size() - 1) swap(p, p + 1); });
-                h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshDashboard(); });
-            }
-            @Override public int getItemCount() { return masterLocations.size(); }
-        });
-    }
-
-    private void swap(int f, int t) {
-        List<LocationEntity> list = db.locationDao().getAll();
-        LocationEntity from = list.get(f), to = list.get(t);
-        int temp = from.displayOrder;
-        from.displayOrder = to.displayOrder;
-        to.displayOrder = temp;
-        db.locationDao().update(from); db.locationDao().update(to);
-        refreshDashboard();
+        masterLocations = db.locationDao().getAll();
+        adapter.notifyDataSetChanged(); // UIを安全に更新
     }
 
     private String formatDuration(long ms) {
+        if (ms < 0) ms = 0;
         long sec = ms / 1000;
         if (isHourUnit) return String.format(Locale.JAPAN, "%.2f", (double) sec / 3600);
         return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
     }
 
-    private void refreshUI() {
-        String unit = isHourUnit ? "(時)" : "(分)";
-        tvHeaderIn.setText("IN" + unit); tvHeaderOut.setText("OUT" + unit);
+    class LogAdapter extends RecyclerView.Adapter<LogViewHolder> {
+        @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
+            return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
+        }
+
+        @Override public void onBindViewHolder(@NonNull LogViewHolder h, int p) {
+            LocationEntity loc = masterLocations.get(p);
+            h.name.setText(loc.name);
+
+            // 指定した日の終わり（23:59:59）
+            Calendar endCal = (Calendar) displayDate.clone();
+            endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
+            long endOfDay = endCal.getTimeInMillis();
+            
+            // 指定した日の始まり（00:00:00）
+            Calendar startCal = (Calendar) displayDate.clone();
+            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
+            long startOfDay = startCal.getTimeInMillis();
+
+            LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, endOfDay);
+            boolean today = isToday();
+            long referenceTime = today ? System.currentTimeMillis() : endOfDay;
+
+            if (latest != null && latest.exitTime == 0 && today) {
+                // ✅ 滞在中
+                h.in.setText(formatDuration(referenceTime - latest.entryTime));
+                h.in.setBackgroundColor(Color.parseColor("#C8E6C9")); // 薄緑
+                h.out.setText("0:00");
+                h.out.setBackgroundColor(Color.TRANSPARENT);
+            } else {
+                // ✅ 地点の外
+                h.in.setBackgroundColor(Color.TRANSPARENT);
+                h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
+
+                if (p == 0) {
+                    // ① 1つ目の地点（拠点）: 外にいるなら 0:00
+                    h.out.setText("0:00");
+                    h.out.setBackgroundColor(Color.TRANSPARENT);
+                } else {
+                    // ③ 2つ目以降（訪問先）: 外にいる間カウントアップ
+                    long outMs;
+                    if (latest != null) {
+                        outMs = referenceTime - (latest.exitTime == 0 ? referenceTime : latest.exitTime);
+                    } else {
+                        // 未訪の場合は「その日の始まり」からの時間をカウント
+                        outMs = referenceTime - startOfDay; 
+                    }
+                    h.out.setText(formatDuration(outMs));
+                    h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT); // 薄赤
+                }
+            }
+
+            h.btnUp.setOnClickListener(v -> { if (p > 0) swap(p, p - 1); });
+            h.btnDown.setOnClickListener(v -> { if (p < masterLocations.size() - 1) swap(p, p + 1); });
+            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshDashboard(); });
+        }
+        @Override public int getItemCount() { return masterLocations != null ? masterLocations.size() : 0; }
+    }
+
+    private void swap(int f, int t) {
+        LocationEntity from = masterLocations.get(f), to = masterLocations.get(t);
+        int temp = from.displayOrder;
+        from.displayOrder = to.displayOrder;
+        to.displayOrder = temp;
+        db.locationDao().update(from); db.locationDao().update(to);
         refreshDashboard();
     }
 
@@ -171,11 +191,7 @@ public class MainActivity extends AppCompatActivity {
         tvStatusBanner.setBackgroundColor(run ? Color.parseColor("#4CAF50") : Color.parseColor("#9E9E9E"));
     }
 
-    @Override protected void onResume() { 
-        super.onResume(); 
-        updateUI(isServiceRunning(GpsLoggingService.class)); 
-        updateHandler.post(updateRunnable); 
-    }
+    @Override protected void onResume() { super.onResume(); updateUI(isServiceRunning(GpsLoggingService.class)); refreshDashboard(); updateHandler.post(updateRunnable); }
     @Override protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
 
     private boolean isServiceRunning(Class<?> sc) {
