@@ -1,110 +1,161 @@
 package com.example.gpslog;
 
+import android.Manifest;
+import android.app.ActivityManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.Toast;
+import android.widget.Switch;
+import android.widget.TextView;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
-import org.osmdroid.config.Configuration;
-import org.osmdroid.util.GeoPoint;
-import org.osmdroid.views.MapView;
-import org.osmdroid.views.overlay.Marker;
-import org.osmdroid.events.MapEventsReceiver;
-import org.osmdroid.views.overlay.MapEventsOverlay;
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.Priority;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
-public class MapActivity extends AppCompatActivity {
-    private MapView mapView;
-    private Marker currentMarker;
+public class MainActivity extends AppCompatActivity {
+    private TextView tvStatusBanner, tvDate;
+    private Switch switchRecord;
+    private RecyclerView rvLogs;
     private AppDatabase db;
-    private EditText etName;
-    private FusedLocationProviderClient fusedLocationClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Configuration.getInstance().setUserAgentValue(getPackageName());
-        setContentView(R.layout.activity_map);
+        setContentView(R.layout.activity_main);
 
-        mapView = findViewById(R.id.map);
-        etName = findViewById(R.id.etLocationName);
-        Button btnJump = findViewById(R.id.btnJumpToCurrent);
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        // UI部品の紐付け
+        tvStatusBanner = findViewById(R.id.tvStatusBanner);
+        tvDate = findViewById(R.id.tvDate);
+        switchRecord = findViewById(R.id.switchRecord);
+        rvLogs = findViewById(R.id.rvDashboardLogs);
+        Button btnRegister = findViewById(R.id.btnRegister);
 
+        // データベース準備
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
                 .allowMainThreadQueries().build();
 
-        loadSavedMarkers();
-        GeoPoint startPoint = new GeoPoint(35.7295, 139.7109);
-        mapView.getController().setZoom(17.0);
-        mapView.getController().setCenter(startPoint);
+        // 日付をセット（スケッチ通り当日を表示）
+        String today = new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(new Date());
+        tvDate.setText(today);
 
-        currentMarker = new Marker(mapView);
-        currentMarker.setPosition(startPoint);
-        currentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-        mapView.getOverlays().add(currentMarker);
+        // サービスが動いているかチェックしてUIを初期化
+        updateUI(isServiceRunning(GpsLoggingService.class));
 
-        // ◎ボタン：クリックしやすく、確実に現在地へ
-        btnJump.setOnClickListener(v -> {
-            try {
-                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                    .addOnSuccessListener(location -> {
-                        if (location != null) {
-                            GeoPoint myLoc = new GeoPoint(location.getLatitude(), location.getLongitude());
-                            mapView.getController().animateTo(myLoc);
-                            currentMarker.setPosition(myLoc);
-                            mapView.invalidate();
-                        }
-                    });
-            } catch (SecurityException e) { e.printStackTrace(); }
+        // 自動記録スイッチの切り替え処理
+        switchRecord.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                if (checkPermissions()) {
+                    startGpsService();
+                } else {
+                    switchRecord.setChecked(false);
+                }
+            } else {
+                stopGpsService();
+            }
         });
 
-        mapView.getOverlays().add(new MapEventsOverlay(new MapEventsReceiver() {
-            @Override public boolean singleTapConfirmedHelper(GeoPoint p) { return false; }
-            @Override public boolean longPressHelper(GeoPoint p) {
-                currentMarker.setPosition(p);
-                mapView.invalidate();
-                return true;
-            }
-        }));
+        // 地点登録ボタン
+        btnRegister.setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
+
+        // ログリストの表示設定
+        setupRecyclerView();
     }
 
-    private void loadSavedMarkers() {
-        List<LocationEntity> allLocations = db.locationDao().getAll();
-        for (LocationEntity loc : allLocations) {
-            if (loc.latitude == 0.0) continue;
-            Marker m = new Marker(mapView);
-            m.setPosition(new GeoPoint(loc.latitude, loc.longitude));
-            m.setTitle(loc.name);
-            mapView.getOverlays().add(m);
+    private void updateUI(boolean isRunning) {
+        switchRecord.setChecked(isRunning);
+        if (isRunning) {
+            tvStatusBanner.setText("オンライン：自動記録中");
+            tvStatusBanner.setBackgroundColor(Color.parseColor("#4CAF50")); // 緑色
+        } else {
+            tvStatusBanner.setText("オフライン");
+            tvStatusBanner.setBackgroundColor(Color.parseColor("#9E9E9E")); // グレー
         }
     }
 
-    @Override public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.map_menu, menu);
+    private void startGpsService() {
+        Intent intent = new Intent(this, GpsLoggingService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+        updateUI(true);
+    }
+
+    private void stopGpsService() {
+        stopService(new Intent(this, GpsLoggingService.class));
+        updateUI(false);
+    }
+
+    private void setupRecyclerView() {
+        rvLogs.setLayoutManager(new LinearLayoutManager(this));
+        List<LocationLogEntity> logs = db.locationDao().getAllLogs();
+        
+        rvLogs.setAdapter(new RecyclerView.Adapter<LogViewHolder>() {
+            @NonNull
+            @Override
+            public LogViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+                View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_log, parent, false);
+                return new LogViewHolder(v);
+            }
+
+            @Override
+            public void onBindViewHolder(@NonNull LogViewHolder holder, int position) {
+                LocationLogEntity log = logs.get(position);
+                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.JAPAN);
+                
+                holder.tvName.setText(log.locationName);
+                holder.tvIn.setText(sdf.format(new Date(log.entryTime)));
+                holder.tvOut.setText(log.exitTime == 0 ? "--:--" : sdf.format(new Date(log.exitTime)));
+            }
+
+            @Override
+            public int getItemCount() { return logs.size(); }
+        });
+    }
+
+    static class LogViewHolder extends RecyclerView.ViewHolder {
+        TextView tvName, tvIn, tvOut;
+        LogViewHolder(View v) {
+            super(v);
+            tvName = v.findViewById(R.id.tvLogName);
+            tvIn = v.findViewById(R.id.tvLogInTime);
+            tvOut = v.findViewById(R.id.tvLogOutTime);
+        }
+    }
+
+    private boolean isServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) return true;
+        }
+        return false;
+    }
+
+    private boolean checkPermissions() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.POST_NOTIFICATIONS}, 1);
+            return false;
+        }
         return true;
     }
 
-    @Override public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.menu_save) {
-            LocationEntity entity = new LocationEntity();
-            entity.name = etName.getText().toString().isEmpty() ? "無題" : etName.getText().toString();
-            entity.latitude = currentMarker.getPosition().getLatitude();
-            entity.longitude = currentMarker.getPosition().getLongitude();
-            db.locationDao().insert(entity);
-            Toast.makeText(this, "保存しました", Toast.LENGTH_SHORT).show();
-            finish();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        setupRecyclerView(); // 画面に戻るたびにリストを更新
     }
-
-    @Override public void onResume() { super.onResume(); mapView.onResume(); }
-    @Override public void onPause() { super.onPause(); mapView.onPause(); }
 }
