@@ -96,6 +96,15 @@ public class GpsLoggingService extends Service {
         SimpleLog(String n, String i, String o) { this.name = n; this.in_hour = i; this.out_hour = o; }
     }
 
+    // ✅ 画面側と全く同じ「秒切り捨て」の計算用メソッド
+    private String formatToHourMatched(long ms) {
+        if (ms < 0) ms = 0;
+        long sec = ms / 1000;
+        long min = sec / 60; // ここで秒を切り捨て
+        if (min == 0) return "0.00";
+        return String.format(Locale.US, "("%.2f"), (double) min / 60.0);
+    }
+
     private class MyWebServer extends NanoHTTPD {
         public MyWebServer(int port) { super(port); }
         @Override
@@ -117,14 +126,19 @@ public class GpsLoggingService extends Service {
                         for (int i = 0; i < dayLogs.size(); i++) {
                             LocationLogEntity log = dayLogs.get(i);
                             totalIn += (log.exitTime == 0) ? (now - log.entryTime) : log.stayDuration;
-                            if (i > 0) totalOut += (log.entryTime - dayLogs.get(i-1).exitTime);
+                            if (i > 0) {
+                                long d = log.entryTime - dayLogs.get(i-1).exitTime;
+                                if (d > 0) totalOut += d;
+                            }
                         }
                         LocationLogEntity last = dayLogs.get(dayLogs.size() - 1);
-                        if (last.exitTime != 0) totalOut += (now - last.exitTime);
+                        if (last.exitTime != 0) {
+                            long d = now - last.exitTime;
+                            if (d > 0) totalOut += d;
+                        }
                     }
-                    resultList.add(new SimpleLog(loc.name, 
-                        String.format(Locale.US, "%.2f", (double)totalIn / 3600000.0), 
-                        String.format(Locale.US, "%.2f", (double)totalOut / 3600000.0)));
+                    // ✅ 修正：画面と同じフォーマットメソッドを使用
+                    resultList.add(new SimpleLog(loc.name, formatToHourMatched(totalIn), formatToHourMatched(totalOut)));
                 }
                 return newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(resultList));
             }
