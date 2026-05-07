@@ -256,6 +256,46 @@ public final class LocationDao_Impl implements LocationDao {
   }
 
   @Override
+  public LocationLogEntity getLatestLog(final int locId, final long endTime) {
+    final String _sql = "SELECT * FROM visit_logs WHERE locationId = ? AND entryTime <= ? ORDER BY entryTime DESC LIMIT 1";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 2);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, locId);
+    _argIndex = 2;
+    _statement.bindLong(_argIndex, endTime);
+    __db.assertNotSuspendingTransaction();
+    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+    try {
+      final int _cursorIndexOfLogId = CursorUtil.getColumnIndexOrThrow(_cursor, "logId");
+      final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
+      final int _cursorIndexOfLocationName = CursorUtil.getColumnIndexOrThrow(_cursor, "locationName");
+      final int _cursorIndexOfEntryTime = CursorUtil.getColumnIndexOrThrow(_cursor, "entryTime");
+      final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
+      final int _cursorIndexOfStayDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "stayDuration");
+      final LocationLogEntity _result;
+      if(_cursor.moveToFirst()) {
+        _result = new LocationLogEntity();
+        _result.logId = _cursor.getInt(_cursorIndexOfLogId);
+        _result.locationId = _cursor.getInt(_cursorIndexOfLocationId);
+        if (_cursor.isNull(_cursorIndexOfLocationName)) {
+          _result.locationName = null;
+        } else {
+          _result.locationName = _cursor.getString(_cursorIndexOfLocationName);
+        }
+        _result.entryTime = _cursor.getLong(_cursorIndexOfEntryTime);
+        _result.exitTime = _cursor.getLong(_cursorIndexOfExitTime);
+        _result.stayDuration = _cursor.getLong(_cursorIndexOfStayDuration);
+      } else {
+        _result = null;
+      }
+      return _result;
+    } finally {
+      _cursor.close();
+      _statement.release();
+    }
+  }
+
+  @Override
   public LocationLogEntity getActiveLog(final int locId) {
     final String _sql = "SELECT * FROM visit_logs WHERE locationId = ? AND exitTime = 0 LIMIT 1";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);

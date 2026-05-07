@@ -1,6 +1,3 @@
-cd /workspaces/GoalGPS
-
-cat << 'EOF' > bc.sh
 #!/bin/bash
 LOG_FILE="last_build_error.log"
 echo "=== Build Started at $(date) ===" > $LOG_FILE
@@ -52,7 +49,3 @@ else
     echo "--------------------------------------------------"
 fi
 exit 0
-EOF
-
-# 実行権限を付与
-chmod +x bc.sh

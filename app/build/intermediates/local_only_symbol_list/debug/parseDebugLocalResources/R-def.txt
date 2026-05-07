@@ -3,7 +3,12 @@ local
 id btnDelete
 id btnDown
 id btnJumpToCurrent
+id btnNextDay
+id btnPrevDay
 id btnRegister
+id btnRowDel
+id btnRowDown
+id btnRowUp
 id btnUp
 id etLocationName
 id map

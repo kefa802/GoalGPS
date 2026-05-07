@@ -5,65 +5,30 @@
     android:orientation="vertical"
     android:background="#F5F5F5">
 
-    <TextView
-        android:id="@+id/tvStatusBanner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="オフライン"
-        android:textColor="#FFFFFF"
-        android:padding="12dp"
-        android:gravity="center"
-        android:background="#9E9E9E" />
+    <TextView android:id="@+id/tvStatusBanner" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="オフライン" android:textColor="#FFFFFF" android:padding="12dp" android:gravity="center" android:background="#9E9E9E" />
 
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:background="#FFFFFF">
-        <Switch
-            android:id="@+id/switchRecord"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Online "
-            android:layout_alignParentRight="true" />
-        <Button
-            android:id="@+id/btnRegister"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="地点登録" />
+    <RelativeLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:background="#FFFFFF">
+        <Switch android:id="@+id/switchRecord" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Online " android:layout_alignParentRight="true" />
+        <Button android:id="@+id/btnRegister" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="地点登録" />
     </RelativeLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:padding="8dp">
-        <TextView android:id="@+id/tvDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2026/05/07" android:textSize="18sp" android:textStyle="bold" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:padding="8dp">
+        <Button android:id="@+id/btnPrevDay" android:layout_width="50dp" android:layout_height="wrap_content" android:text="◀" android:background="?android:attr/selectableItemBackground"/>
+        <TextView android:id="@+id/tvDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2026/05/07" android:textSize="18sp" android:textStyle="bold" android:layout_marginHorizontal="16dp" />
+        <Button android:id="@+id/btnNextDay" android:layout_width="50dp" android:layout_height="wrap_content" android:text="▶" android:background="?android:attr/selectableItemBackground"/>
     </LinearLayout>
 
-    <RadioGroup
-        android:id="@+id/rgUnit"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_gravity="right"
-        android:layout_marginRight="16dp">
+    <RadioGroup android:id="@+id/rgUnit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_gravity="right" android:layout_marginRight="16dp">
         <RadioButton android:id="@+id/rbMin" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="分" android:checked="true" />
         <RadioButton android:id="@+id/rbHour" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="時" />
     </RadioGroup>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#E0E0E0"
-        android:padding="8dp">
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="center" />
-        <TextView android:id="@+id/tvHeaderIn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IN時間(分)" android:gravity="center" />
-        <TextView android:id="@+id/tvHeaderOut" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="OUT時間(分)" android:gravity="center" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="#E0E0E0" android:paddingVertical="8dp" android:paddingHorizontal="8dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
+        <TextView android:id="@+id/tvHeaderIn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IN(分)" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
+        <TextView android:id="@+id/tvHeaderOut" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="OUT(分)" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
+        <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1.5" />
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvDashboardLogs"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvDashboardLogs" android:layout_width="match_parent" android:layout_height="match_parent" />
 </LinearLayout>
