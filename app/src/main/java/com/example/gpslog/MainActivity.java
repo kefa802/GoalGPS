@@ -2,8 +2,10 @@ package com.example.gpslog;
 
 import android.Manifest;
 import android.app.ActivityManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
@@ -44,6 +46,20 @@ public class MainActivity extends AppCompatActivity {
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LogAdapter adapter;
 
+    // ✅ ① 現在地を受信して保管する箱
+    private String currentLocationStr = "取得中...";
+    private BroadcastReceiver locationReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            double lat = intent.getDoubleExtra("lat", 0);
+            double lng = intent.getDoubleExtra("lng", 0);
+            currentLocationStr = String.format(Locale.US, "%.5f, %.5f", lat, lng);
+            if (switchRecord != null && switchRecord.isChecked()) {
+                tvStatusBanner.setText("オンライン：自動記録中\n[現在地] " + currentLocationStr);
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.1.4"); // ✅ バージョン更新
+        tvVersion.setText("Ver: 1.1.5");
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
@@ -81,7 +97,6 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
 
-        // ✅ オフライン時は1秒ごとの更新ループ自体を止めてバッテリーを節約
         updateRunnable = new Runnable() {
             @Override public void run() {
                 if (switchRecord.isChecked() && isToday()) {
@@ -113,21 +128,8 @@ public class MainActivity extends AppCompatActivity {
         List<LocationEntity> freshData = db.locationDao().getAll();
         masterLocations.clear();
         
-        long now = System.currentTimeMillis();
-
         if (freshData != null && !freshData.isEmpty()) {
-            for (LocationEntity loc : freshData) {
-                LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, now);
-                if (latest == null) {
-                    LocationLogEntity dummy = new LocationLogEntity();
-                    dummy.locationId = loc.id;
-                    dummy.entryTime = now;
-                    dummy.exitTime = now;
-                    dummy.stayDuration = 0;
-                    db.locationDao().insertLog(dummy);
-                }
-                masterLocations.add(loc);
-            }
+            masterLocations.addAll(freshData);
             tvEmpty.setVisibility(View.GONE);
             rvLogs.setVisibility(View.VISIBLE);
         } else {
@@ -148,13 +150,36 @@ public class MainActivity extends AppCompatActivity {
         return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
     }
 
-    @Override protected void onResume() { super.onResume(); updateUI(isServiceRunning(GpsLoggingService.class)); refreshData(); updateHandler.post(updateRunnable); }
-    @Override protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
+    @Override protected void onResume() { 
+        super.onResume(); 
+        updateUI(isServiceRunning(GpsLoggingService.class)); 
+        refreshData(); 
+        updateHandler.post(updateRunnable); 
+        
+        // ✅ ブロードキャスト（受信機）の起動
+        IntentFilter filter = new IntentFilter("GPS_LOCATION_UPDATE");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(locationReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(locationReceiver, filter);
+        }
+    }
+
+    @Override protected void onPause() { 
+        super.onPause(); 
+        updateHandler.removeCallbacks(updateRunnable); 
+        unregisterReceiver(locationReceiver); // ✅ 受信機の停止
+    }
 
     private void updateUI(boolean run) {
         switchRecord.setChecked(run);
-        tvStatusBanner.setText(run ? "オンライン：自動記録中" : "オフライン");
-        tvStatusBanner.setBackgroundColor(run ? Color.parseColor("#4CAF50") : Color.parseColor("#9E9E9E"));
+        if (run) {
+            tvStatusBanner.setText("オンライン：自動記録中\n[現在地] " + currentLocationStr);
+            tvStatusBanner.setBackgroundColor(Color.parseColor("#4CAF50"));
+        } else {
+            tvStatusBanner.setText("オフライン");
+            tvStatusBanner.setBackgroundColor(Color.parseColor("#9E9E9E"));
+        }
     }
 
     private void startGpsService() {
@@ -183,7 +208,6 @@ public class MainActivity extends AppCompatActivity {
         stopService(new Intent(this, GpsLoggingService.class)); 
         updateUI(false); 
         
-        // ✅ オフラインにした瞬間、現在進行中（IN）のログを確定させてカウントを永久ストップする
         long now = System.currentTimeMillis();
         List<LocationEntity> locs = db.locationDao().getAll();
         if (locs != null) {
@@ -215,49 +239,56 @@ public class MainActivity extends AppCompatActivity {
         @Override public void onBindViewHolder(@NonNull LogViewHolder h, int pos) {
             LocationEntity loc = masterLocations.get(pos);
             h.name.setText(loc.name != null ? loc.name : "不明");
-
-            Calendar endCal = (Calendar) displayDate.clone();
-            endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
-            long endOfDay = endCal.getTimeInMillis();
+            // ✅ ② 登録された位置情報（座標）を表示
+            h.location.setText(String.format(Locale.US, "%.5f, %.5f", loc.latitude, loc.longitude));
 
             Calendar startCal = (Calendar) displayDate.clone();
-            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
+            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0); startCal.set(Calendar.MILLISECOND, 0);
             long startOfDay = startCal.getTimeInMillis();
 
-            LocationLogEntity latest = null;
-            try { latest = db.locationDao().getLatestLog(loc.id, endOfDay); } catch(Exception e){}
-            
+            Calendar endCal = (Calendar) displayDate.clone();
+            endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59); endCal.set(Calendar.MILLISECOND, 999);
+            long endOfDay = endCal.getTimeInMillis();
+
             boolean isOnline = switchRecord.isChecked();
             boolean today = isToday();
             long referenceTime = today ? System.currentTimeMillis() : endOfDay;
 
-            if (latest != null) {
-                if (latest.exitTime == 0 && today) {
-                    // 現在滞在中
-                    h.in.setText(formatDuration(referenceTime - latest.entryTime));
-                    h.in.setBackgroundColor(isOnline ? Color.parseColor("#C8E6C9") : Color.TRANSPARENT);
-                    h.out.setText("0:00");
-                    h.out.setBackgroundColor(Color.TRANSPARENT);
-                } else {
-                    // 退出済み（またはオフラインでログが確定済み）
-                    h.in.setText(formatDuration(latest.stayDuration));
-                    h.in.setBackgroundColor(Color.TRANSPARENT);
-                    
-                    if (isOnline && today) {
-                        // オンラインならOUTの時間をカウント
-                        long outMs = referenceTime - latest.exitTime;
-                        h.out.setText(formatDuration(outMs));
-                        h.out.setBackgroundColor(Color.parseColor("#FFCDD2"));
+            // ✅ ③ その日のすべてのログを取得して「積算時間」を計算する
+            List<LocationLogEntity> dayLogs = db.locationDao().getLogsForDay(loc.id, startOfDay, endOfDay);
+            long totalStayMs = 0;
+            boolean isActive = false;
+
+            if (dayLogs != null) {
+                for (LocationLogEntity log : dayLogs) {
+                    if (log.exitTime == 0) {
+                        // 現在滞在中
+                        if (today) {
+                            totalStayMs += (referenceTime - log.entryTime);
+                        }
+                        isActive = true;
                     } else {
-                        // ✅ オフライン時はOUTもカウントを停止し、色も消す
-                        h.out.setText("0:00");
-                        h.out.setBackgroundColor(Color.TRANSPARENT);
+                        // すでに退出済み（過去のログ）
+                        totalStayMs += log.stayDuration;
                     }
                 }
+            }
+
+            // OUTの積算時間 ＝ (今日の0時からの総時間) − (滞在した合計時間)
+            long totalTimeFromStartOfDay = referenceTime - startOfDay;
+            if (totalTimeFromStartOfDay < 0) totalTimeFromStartOfDay = 0;
+            long totalOutMs = totalTimeFromStartOfDay - totalStayMs;
+            if (totalOutMs < 0) totalOutMs = 0;
+
+            // IN表示の更新
+            h.in.setText(formatDuration(totalStayMs));
+            h.in.setBackgroundColor((isActive && isOnline && today) ? Color.parseColor("#C8E6C9") : Color.TRANSPARENT);
+
+            // OUT表示の更新
+            h.out.setText(formatDuration(totalOutMs));
+            if (isOnline && today) {
+                h.out.setBackgroundColor(isActive ? Color.TRANSPARENT : Color.parseColor("#FFCDD2"));
             } else {
-                h.in.setText("0:00");
-                h.in.setBackgroundColor(Color.TRANSPARENT);
-                h.out.setText("0:00");
                 h.out.setBackgroundColor(Color.TRANSPARENT);
             }
 
@@ -304,7 +335,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     static class LogViewHolder extends RecyclerView.ViewHolder {
-        TextView name, in, out;
-        LogViewHolder(View v) { super(v); name = v.findViewById(R.id.tvLogName); in = v.findViewById(R.id.tvLogInTime); out = v.findViewById(R.id.tvLogOutTime); }
+        TextView name, location, in, out;
+        LogViewHolder(View v) { 
+            super(v); 
+            name = v.findViewById(R.id.tvLogName); 
+            location = v.findViewById(R.id.tvLogLocation); 
+            in = v.findViewById(R.id.tvLogInTime); 
+            out = v.findViewById(R.id.tvLogOutTime); 
+        }
     }
 }
