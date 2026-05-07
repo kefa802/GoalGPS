@@ -7,7 +7,7 @@ export JAVA_HOME="/usr/local/sdkman/candidates/java/21.0.10-ms"
 export PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
 
 echo "🧹 過去のゴミAPKファイルを掃除中..."
-rm -f GoalGPS_v*.apk
+rm -f GoalGPS_*.apk
 rm -rf app/build build
 
 echo "🚀 Building GoalGPS..."
