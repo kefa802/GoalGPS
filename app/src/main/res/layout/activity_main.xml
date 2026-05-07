@@ -51,7 +51,9 @@
     </RelativeLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:padding="8dp">
-        <TextView android:id="@+id/tvDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2026/05/07" android:textSize="18sp" android:textStyle="bold" />
+        <Button android:id="@+id/btnPrevDay" android:layout_width="50dp" android:layout_height="wrap_content" android:text="◀" android:background="?android:attr/selectableItemBackground"/>
+        <TextView android:id="@+id/tvDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2026/05/07" android:textSize="18sp" android:textStyle="bold" android:layout_marginHorizontal="16dp" />
+        <Button android:id="@+id/btnNextDay" android:layout_width="50dp" android:layout_height="wrap_content" android:text="▶" android:background="?android:attr/selectableItemBackground"/>
     </LinearLayout>
 
     <RadioGroup android:id="@+id/rgUnit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_gravity="right" android:layout_marginRight="16dp">
@@ -65,7 +67,9 @@
         android:background="#E0E0E0"
         android:paddingVertical="8dp"
         android:paddingHorizontal="8dp"
-        android:weightSum="5.5"> <TextView
+        android:weightSum="5.5"> 
+        
+        <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="2"
@@ -95,7 +99,8 @@
             android:textStyle="bold"
             android:textColor="#333333"/>
             
-        <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1.5" /> </LinearLayout>
+        <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1.5" /> 
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvDashboardLogs" android:layout_width="match_parent" android:layout_height="match_parent" />
 </LinearLayout>
