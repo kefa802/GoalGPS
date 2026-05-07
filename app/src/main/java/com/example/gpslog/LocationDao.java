@@ -9,17 +9,18 @@ import java.util.List;
 @Dao
 public interface LocationDao {
     @Insert void insert(LocationEntity location);
-
-    @Query("SELECT * FROM locations ORDER BY displayOrder ASC")
-    List<LocationEntity> getAll();
-
+    @Query("SELECT * FROM locations ORDER BY displayOrder ASC") List<LocationEntity> getAll();
     @Update void update(LocationEntity location);
     @Delete void delete(LocationEntity location);
 
     @Insert void insertLog(LocationLogEntity log);
     @Update void updateLog(LocationLogEntity log);
-    @Query("SELECT * FROM visit_logs ORDER BY entryTime DESC")
-    List<LocationLogEntity> getAllLogs();
+    @Query("SELECT * FROM visit_logs ORDER BY entryTime DESC") List<LocationLogEntity> getAllLogs();
+    
+    // ✅ 各地点の最新のログを1件だけ取得する（IN/OUT計算用）
+    @Query("SELECT * FROM visit_logs WHERE locationId = :locId ORDER BY entryTime DESC LIMIT 1")
+    LocationLogEntity getLatestLog(int locId);
+
     @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND exitTime = 0 LIMIT 1")
     LocationLogEntity getActiveLog(int locId);
 }
