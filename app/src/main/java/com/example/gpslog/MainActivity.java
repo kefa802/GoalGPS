@@ -46,16 +46,20 @@ public class MainActivity extends AppCompatActivity {
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LogAdapter adapter;
 
-    // ✅ ① 現在地を受信して保管する箱
     private String currentLocationStr = "取得中...";
+    private boolean isCurrentlyMocking = false;
+
     private BroadcastReceiver locationReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             double lat = intent.getDoubleExtra("lat", 0);
             double lng = intent.getDoubleExtra("lng", 0);
+            isCurrentlyMocking = intent.getBooleanExtra("is_mock", false);
             currentLocationStr = String.format(Locale.US, "%.5f, %.5f", lat, lng);
+            
             if (switchRecord != null && switchRecord.isChecked()) {
-                tvStatusBanner.setText("オンライン：自動記録中\n[現在地] " + currentLocationStr);
+                String mockText = isCurrentlyMocking ? " 【ワープ中】" : "";
+                tvStatusBanner.setText("オンライン：自動記録中" + mockText + "\n[現在地] " + currentLocationStr);
             }
         }
     };
@@ -75,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.1.5");
+        tvVersion.setText("Ver: 1.1.6");
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
@@ -96,6 +100,15 @@ public class MainActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
+
+        // ✅ バナーをタップした時にワープを解除する機能
+        tvStatusBanner.setOnClickListener(v -> {
+            android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
+            if (prefs.getBoolean("is_mock", false)) {
+                prefs.edit().putBoolean("is_mock", false).apply();
+                Toast.makeText(this, "ワープ（現在地偽装）を解除しました", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         updateRunnable = new Runnable() {
             @Override public void run() {
@@ -128,8 +141,21 @@ public class MainActivity extends AppCompatActivity {
         List<LocationEntity> freshData = db.locationDao().getAll();
         masterLocations.clear();
         
+        long now = System.currentTimeMillis();
+
         if (freshData != null && !freshData.isEmpty()) {
-            masterLocations.addAll(freshData);
+            for (LocationEntity loc : freshData) {
+                LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, now);
+                if (latest == null) {
+                    LocationLogEntity dummy = new LocationLogEntity();
+                    dummy.locationId = loc.id;
+                    dummy.entryTime = now;
+                    dummy.exitTime = now;
+                    dummy.stayDuration = 0;
+                    db.locationDao().insertLog(dummy);
+                }
+                masterLocations.add(loc);
+            }
             tvEmpty.setVisibility(View.GONE);
             rvLogs.setVisibility(View.VISIBLE);
         } else {
@@ -156,7 +182,6 @@ public class MainActivity extends AppCompatActivity {
         refreshData(); 
         updateHandler.post(updateRunnable); 
         
-        // ✅ ブロードキャスト（受信機）の起動
         IntentFilter filter = new IntentFilter("GPS_LOCATION_UPDATE");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(locationReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -168,16 +193,17 @@ public class MainActivity extends AppCompatActivity {
     @Override protected void onPause() { 
         super.onPause(); 
         updateHandler.removeCallbacks(updateRunnable); 
-        unregisterReceiver(locationReceiver); // ✅ 受信機の停止
+        unregisterReceiver(locationReceiver); 
     }
 
     private void updateUI(boolean run) {
         switchRecord.setChecked(run);
         if (run) {
-            tvStatusBanner.setText("オンライン：自動記録中\n[現在地] " + currentLocationStr);
+            String mockText = isCurrentlyMocking ? " 【ワープ中】" : "";
+            tvStatusBanner.setText("オンライン：自動記録中" + mockText + "\n[現在地] " + currentLocationStr);
             tvStatusBanner.setBackgroundColor(Color.parseColor("#4CAF50"));
         } else {
-            tvStatusBanner.setText("オフライン");
+            tvStatusBanner.setText("オフライン\n[現在地] 記録停止中");
             tvStatusBanner.setBackgroundColor(Color.parseColor("#9E9E9E"));
         }
     }
@@ -196,6 +222,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         try {
+            currentLocationStr = "取得中..."; // スイッチを入れた瞬間に表示をリセット
             startForegroundService(new Intent(this, GpsLoggingService.class));
             updateUI(true);
         } catch (Exception e) {
@@ -239,7 +266,6 @@ public class MainActivity extends AppCompatActivity {
         @Override public void onBindViewHolder(@NonNull LogViewHolder h, int pos) {
             LocationEntity loc = masterLocations.get(pos);
             h.name.setText(loc.name != null ? loc.name : "不明");
-            // ✅ ② 登録された位置情報（座標）を表示
             h.location.setText(String.format(Locale.US, "%.5f, %.5f", loc.latitude, loc.longitude));
 
             Calendar startCal = (Calendar) displayDate.clone();
@@ -254,37 +280,40 @@ public class MainActivity extends AppCompatActivity {
             boolean today = isToday();
             long referenceTime = today ? System.currentTimeMillis() : endOfDay;
 
-            // ✅ ③ その日のすべてのログを取得して「積算時間」を計算する
             List<LocationLogEntity> dayLogs = db.locationDao().getLogsForDay(loc.id, startOfDay, endOfDay);
-            long totalStayMs = 0;
+            long totalInMs = 0;
+            long totalOutMs = 0;
             boolean isActive = false;
 
-            if (dayLogs != null) {
-                for (LocationLogEntity log : dayLogs) {
+            // ✅ 修正：ログ間の「空白」だけを足し算してOUTを算出する完璧なロジック
+            if (dayLogs != null && !dayLogs.isEmpty()) {
+                for (int i = 0; i < dayLogs.size(); i++) {
+                    LocationLogEntity log = dayLogs.get(i);
+                    
                     if (log.exitTime == 0) {
-                        // 現在滞在中
-                        if (today) {
-                            totalStayMs += (referenceTime - log.entryTime);
-                        }
+                        if (today) totalInMs += (referenceTime - log.entryTime);
                         isActive = true;
                     } else {
-                        // すでに退出済み（過去のログ）
-                        totalStayMs += log.stayDuration;
+                        totalInMs += log.stayDuration;
                     }
+
+                    if (i > 0) {
+                        LocationLogEntity prevLog = dayLogs.get(i - 1);
+                        long outDuration = log.entryTime - prevLog.exitTime;
+                        if (outDuration > 0) totalOutMs += outDuration;
+                    }
+                }
+                
+                LocationLogEntity lastLog = dayLogs.get(dayLogs.size() - 1);
+                if (lastLog.exitTime != 0 && today) {
+                    long finalOut = referenceTime - lastLog.exitTime;
+                    if (finalOut > 0) totalOutMs += finalOut;
                 }
             }
 
-            // OUTの積算時間 ＝ (今日の0時からの総時間) − (滞在した合計時間)
-            long totalTimeFromStartOfDay = referenceTime - startOfDay;
-            if (totalTimeFromStartOfDay < 0) totalTimeFromStartOfDay = 0;
-            long totalOutMs = totalTimeFromStartOfDay - totalStayMs;
-            if (totalOutMs < 0) totalOutMs = 0;
-
-            // IN表示の更新
-            h.in.setText(formatDuration(totalStayMs));
+            h.in.setText(formatDuration(totalInMs));
             h.in.setBackgroundColor((isActive && isOnline && today) ? Color.parseColor("#C8E6C9") : Color.TRANSPARENT);
 
-            // OUT表示の更新
             h.out.setText(formatDuration(totalOutMs));
             if (isOnline && today) {
                 h.out.setBackgroundColor(isActive ? Color.TRANSPARENT : Color.parseColor("#FFCDD2"));
@@ -293,7 +322,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             h.itemView.setOnLongClickListener(v -> {
-                CharSequence[] items = {"時間クリア", "上へ移動", "下へ移動", "削除"};
+                CharSequence[] items = {"時間クリア", "上へ移動", "下へ移動", "削除", "📍 ここにワープ(テスト用)"};
                 new AlertDialog.Builder(MainActivity.this)
                     .setTitle(loc.name + " の操作")
                     .setItems(items, (dialog, which) -> {
@@ -314,6 +343,15 @@ public class MainActivity extends AppCompatActivity {
                                 db.locationDao().delete(loc);
                                 refreshData();
                                 Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show();
+                                break;
+                            case 4: // ✅ テスト用のワープ機能
+                                android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
+                                prefs.edit()
+                                     .putBoolean("is_mock", true)
+                                     .putLong("mock_lat", Double.doubleToRawLongBits(loc.latitude))
+                                     .putLong("mock_lng", Double.doubleToRawLongBits(loc.longitude))
+                                     .apply();
+                                Toast.makeText(MainActivity.this, loc.name + " にワープしました！\n（緑のバナーをタップで解除）", Toast.LENGTH_LONG).show();
                                 break;
                         }
                     })
