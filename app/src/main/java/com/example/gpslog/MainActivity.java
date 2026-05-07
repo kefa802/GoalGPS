@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.1.0");
+        tvVersion.setText("Ver: 1.1.1");
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
@@ -182,41 +182,35 @@ public class MainActivity extends AppCompatActivity {
             endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
             long endOfDay = endCal.getTimeInMillis();
 
-            Calendar startCal = (Calendar) displayDate.clone();
-            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
-            long startOfDay = startCal.getTimeInMillis();
-
             LocationLogEntity latest = null;
             try { latest = db.locationDao().getLatestLog(loc.id, endOfDay); } catch(Exception e){}
             
             boolean today = isToday();
             long referenceTime = today ? System.currentTimeMillis() : endOfDay;
 
-            if (latest != null && latest.exitTime == 0 && today) {
+            // ✅ 修正：全行共通の完璧な時間計算ロジック
+            if (latest == null) {
+                // データが無い（リセット直後など）場合は 0:00
+                h.in.setText("0:00");
+                h.in.setBackgroundColor(Color.TRANSPARENT);
+                h.out.setText("0:00");
+                h.out.setBackgroundColor(Color.TRANSPARENT);
+            } else if (latest.exitTime == 0 && today) {
+                // 現在滞在中
                 h.in.setText(formatDuration(referenceTime - latest.entryTime));
                 h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
                 h.out.setText("0:00");
                 h.out.setBackgroundColor(Color.TRANSPARENT);
             } else {
+                // すでに退出済み
+                h.in.setText(formatDuration(latest.stayDuration));
                 h.in.setBackgroundColor(Color.TRANSPARENT);
-                h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
-                
-                if (pos == 0) {
-                    h.out.setText("0:00");
-                    h.out.setBackgroundColor(Color.TRANSPARENT);
-                } else {
-                    long outMs;
-                    if (latest != null) {
-                        outMs = referenceTime - (latest.exitTime == 0 ? referenceTime : latest.exitTime);
-                    } else {
-                        outMs = referenceTime - startOfDay;
-                    }
-                    h.out.setText(formatDuration(outMs));
-                    h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
-                }
+
+                long outMs = referenceTime - latest.exitTime;
+                h.out.setText(formatDuration(outMs));
+                h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
             }
 
-            // ✅ 改善：長押しメニューの実装
             h.itemView.setOnLongClickListener(v -> {
                 CharSequence[] items = {"時間クリア", "上へ移動", "下へ移動", "削除"};
                 new AlertDialog.Builder(MainActivity.this)
@@ -235,7 +229,7 @@ public class MainActivity extends AppCompatActivity {
                                 if (pos < masterLocations.size() - 1) swap(pos, pos + 1);
                                 break;
                             case 3: // 削除
-                                db.locationDao().deleteLogsByLocationId(loc.id); // ログも一緒に完全削除
+                                db.locationDao().deleteLogsByLocationId(loc.id);
                                 db.locationDao().delete(loc);
                                 refreshData();
                                 Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show();
@@ -261,12 +255,6 @@ public class MainActivity extends AppCompatActivity {
 
     static class LogViewHolder extends RecyclerView.ViewHolder {
         TextView name, in, out;
-        // ✅ 修正：ボタン群を削除
-        LogViewHolder(View v) { 
-            super(v); 
-            name = v.findViewById(R.id.tvLogName); 
-            in = v.findViewById(R.id.tvLogInTime); 
-            out = v.findViewById(R.id.tvLogOutTime); 
-        }
+        LogViewHolder(View v) { super(v); name = v.findViewById(R.id.tvLogName); in = v.findViewById(R.id.tvLogInTime); out = v.findViewById(R.id.tvLogOutTime); }
     }
 }
