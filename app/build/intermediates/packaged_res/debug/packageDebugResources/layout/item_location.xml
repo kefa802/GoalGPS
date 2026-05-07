@@ -1,21 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp">
-
-    <TextView
-        android:id="@+id/tvLocationName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/tvCoordinates"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:textColor="#666666" />
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:padding="8dp" android:gravity="center_vertical">
+    <TextView android:id="@+id/tvLocationName" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="18sp" />
+    <Button android:id="@+id/btnUp" android:layout_width="50dp" android:layout_height="wrap_content" android:text="↑" />
+    <Button android:id="@+id/btnDown" android:layout_width="50dp" android:layout_height="wrap_content" android:text="↓" />
+    <Button android:id="@+id/btnDelete" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="削除" android:backgroundTint="#F44336" />
 </LinearLayout>

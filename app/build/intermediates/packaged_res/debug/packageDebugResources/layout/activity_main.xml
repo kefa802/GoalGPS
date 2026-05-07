@@ -26,14 +26,11 @@
             android:layout_height="wrap_content"
             android:text="Online "
             android:layout_alignParentRight="true" />
-        <LinearLayout
+        <Button
+            android:id="@+id/btnRegister"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <Button android:id="@+id/btnStart" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="スタート" android:layout_marginRight="4dp"/>
-            <Button android:id="@+id/btnStop" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ストップ" android:layout_marginRight="4dp"/>
-            <Button android:id="@+id/btnRegister" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="地点登録" />
-        </LinearLayout>
+            android:text="地点登録" />
     </RelativeLayout>
 
     <LinearLayout

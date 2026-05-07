@@ -1,9 +1,10 @@
 R_DEF: Internal format may change without notice
 local
+id btnDelete
+id btnDown
 id btnJumpToCurrent
 id btnRegister
-id btnStart
-id btnStop
+id btnUp
 id etLocationName
 id map
 id menu_save
@@ -13,7 +14,6 @@ id rgUnit
 id rvDashboardLogs
 id rvHistory
 id switchRecord
-id tvCoordinates
 id tvDate
 id tvHeaderIn
 id tvHeaderOut

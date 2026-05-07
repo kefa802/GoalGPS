@@ -1,30 +1,26 @@
 [
     {
-        "merged": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-debug-35:/menu_map_menu.xml.flat",
-        "source": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-main-37:/menu/map_menu.xml"
+        "merged": "com.example.gpslog.app-debug-35:/layout_activity_history.xml.flat",
+        "source": "com.example.gpslog.app-main-37:/layout/activity_history.xml"
+    },
+    {
+        "merged": "com.example.gpslog.app-debug-35:/layout_activity_map.xml.flat",
+        "source": "com.example.gpslog.app-main-37:/layout/activity_map.xml"
     },
     {
         "merged": "com.example.gpslog.app-debug-35:/layout_item_log.xml.flat",
         "source": "com.example.gpslog.app-main-37:/layout/item_log.xml"
     },
     {
-        "merged": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-debug-35:/layout_activity_map.xml.flat",
-        "source": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-main-37:/layout/activity_map.xml"
-    },
-    {
-        "merged": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-debug-35:/layout_activity_main.xml.flat",
-        "source": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-main-37:/layout/activity_main.xml"
-    },
-    {
-        "merged": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-debug-35:/layout_activity_history.xml.flat",
-        "source": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-main-37:/layout/activity_history.xml"
-    },
-    {
-        "merged": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-debug-35:/layout_item_location.xml.flat",
-        "source": "/home/codespace/.gradle/daemon/9.4.0/com.example.gpslog.app-main-37:/layout/item_location.xml"
+        "merged": "com.example.gpslog.app-debug-35:/menu_map_menu.xml.flat",
+        "source": "com.example.gpslog.app-main-37:/menu/map_menu.xml"
     },
     {
         "merged": "com.example.gpslog.app-debug-35:/layout_activity_main.xml.flat",
         "source": "com.example.gpslog.app-main-37:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.example.gpslog.app-debug-35:/layout_item_location.xml.flat",
+        "source": "com.example.gpslog.app-main-37:/layout/item_location.xml"
     }
 ]

@@ -3161,10 +3161,11 @@ id bounce
 id bounceBoth
 id bounceEnd
 id bounceStart
+id btnDelete
+id btnDown
 id btnJumpToCurrent
 id btnRegister
-id btnStart
-id btnStop
+id btnUp
 id bubble_description
 id bubble_image
 id bubble_moreinfo
@@ -3556,7 +3557,6 @@ id transition_position
 id transition_scene_layoutid_cache
 id transition_transform
 id triangle
-id tvCoordinates
 id tvDate
 id tvHeaderIn
 id tvHeaderOut

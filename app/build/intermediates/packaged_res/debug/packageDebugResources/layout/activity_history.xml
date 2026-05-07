@@ -7,10 +7,12 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="保存済み地点一覧"
+        android:text="登録地点リスト（削除・並べ替え）"
         android:textSize="20sp"
         android:padding="16dp"
-        android:background="#EEEEEE"/>
+        android:background="#2196F3"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"/>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvHistory"
