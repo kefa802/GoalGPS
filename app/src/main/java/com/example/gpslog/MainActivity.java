@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.1.2"); // ✅ バージョン更新
+        tvVersion.setText("Ver: 1.1.3"); // ✅ バージョン更新
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
@@ -110,8 +110,22 @@ public class MainActivity extends AppCompatActivity {
         List<LocationEntity> freshData = db.locationDao().getAll();
         masterLocations.clear();
         
+        long now = System.currentTimeMillis();
+
         if (freshData != null && !freshData.isEmpty()) {
-            masterLocations.addAll(freshData);
+            for (LocationEntity loc : freshData) {
+                // ✅ 修正のコア：データが空っぽ（クリア直後や新規登録）の場合、今の時間を基準にするダミーを仕込む
+                LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, now);
+                if (latest == null) {
+                    LocationLogEntity dummy = new LocationLogEntity();
+                    dummy.locationId = loc.id;
+                    dummy.entryTime = now;
+                    dummy.exitTime = now;
+                    dummy.stayDuration = 0;
+                    db.locationDao().insertLog(dummy);
+                }
+                masterLocations.add(loc);
+            }
             tvEmpty.setVisibility(View.GONE);
             rvLogs.setVisibility(View.VISIBLE);
         } else {
@@ -121,12 +135,13 @@ public class MainActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    // ✅ 改善：59秒までは確実に 0.00 と表示するロジックに変更
+    // ✅ 秒の切り捨てロジックを強化し、59秒までは絶対に0.00にする
     private String formatDuration(long ms) {
         if (ms < 0) ms = 0;
         long sec = ms / 1000;
         if (isHourUnit) {
-            long min = sec / 60; // 秒を切り捨てて「分」ベースにする
+            long min = sec / 60; // 秒を切り捨て
+            if (min == 0) return "0.00"; // 0分なら絶対に0.00
             return String.format(Locale.JAPAN, "%.2f", (double) min / 60.0);
         }
         return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
@@ -186,40 +201,31 @@ public class MainActivity extends AppCompatActivity {
             endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
             long endOfDay = endCal.getTimeInMillis();
 
-            Calendar startCal = (Calendar) displayDate.clone();
-            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
-            long startOfDay = startCal.getTimeInMillis();
-
             LocationLogEntity latest = null;
             try { latest = db.locationDao().getLatestLog(loc.id, endOfDay); } catch(Exception e){}
             
             boolean today = isToday();
             long referenceTime = today ? System.currentTimeMillis() : endOfDay;
 
-            // ✅ 修正：データが空でも絶対にカウントダウンさせる完璧なロジック
-            if (latest == null) {
-                // 1度も入っていない（あるいはリセット直後）場合：朝0時からの全時間がOUTになる
+            if (latest != null) {
+                if (latest.exitTime == 0 && today) {
+                    h.in.setText(formatDuration(referenceTime - latest.entryTime));
+                    h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
+                    h.out.setText("0:00");
+                    h.out.setBackgroundColor(Color.TRANSPARENT);
+                } else {
+                    h.in.setText(formatDuration(latest.stayDuration));
+                    h.in.setBackgroundColor(Color.TRANSPARENT);
+                    
+                    long outMs = referenceTime - latest.exitTime;
+                    h.out.setText(formatDuration(outMs));
+                    h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
+                }
+            } else {
                 h.in.setText("0:00");
                 h.in.setBackgroundColor(Color.TRANSPARENT);
-                
-                long outMs = referenceTime - startOfDay;
-                h.out.setText(formatDuration(outMs));
-                h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
-                
-            } else if (latest.exitTime == 0 && today) {
-                // 現在滞在中
-                h.in.setText(formatDuration(referenceTime - latest.entryTime));
-                h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
                 h.out.setText("0:00");
                 h.out.setBackgroundColor(Color.TRANSPARENT);
-            } else {
-                // 退出済み
-                h.in.setText(formatDuration(latest.stayDuration));
-                h.in.setBackgroundColor(Color.TRANSPARENT);
-                
-                long outMs = referenceTime - latest.exitTime;
-                h.out.setText(formatDuration(outMs));
-                h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
             }
 
             h.itemView.setOnLongClickListener(v -> {
@@ -230,7 +236,7 @@ public class MainActivity extends AppCompatActivity {
                         switch (which) {
                             case 0: // 時間クリア
                                 db.locationDao().deleteLogsByLocationId(loc.id);
-                                refreshData();
+                                refreshData(); // 呼び出すだけで裏側でダミーが作られ、カウントが即再開！
                                 Toast.makeText(MainActivity.this, "時間をリセットしました", Toast.LENGTH_SHORT).show();
                                 break;
                             case 1: // 上へ移動
