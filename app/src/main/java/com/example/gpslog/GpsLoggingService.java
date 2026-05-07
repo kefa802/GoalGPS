@@ -1,4 +1,5 @@
 package com.example.gpslog;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -7,6 +8,7 @@ import android.content.Intent;
 import android.location.Location;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.room.Room;
 import com.google.android.gms.location.*;
@@ -16,12 +18,24 @@ public class GpsLoggingService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private AppDatabase db;
+    private LocalWebServer webServer; // ✅ サーバーを変数に用意
     private static final float GEOFENCE_RADIUS = 100.0f;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
+        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
+                .allowMainThreadQueries().build();
+                
+        // ✅ GPS監視開始と同時にローカルサーバーをポート8080で起動
+        webServer = new LocalWebServer(8080, db);
+        try {
+            webServer.start();
+            Log.d("GoalGPS", "ローカルAPIサーバーがポート8080で起動しました");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         locationCallback = new LocationCallback() {
             @Override
@@ -64,7 +78,7 @@ public class GpsLoggingService extends Service {
         createNotificationChannel();
         Notification notification = new NotificationCompat.Builder(this, "gps_channel")
                 .setContentTitle("GoalGPS 稼働中")
-                .setContentText("自動滞在記録を行っています")
+                .setContentText("自動滞在記録とAPIサーバーが起動しています")
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .build();
         startForeground(1, notification);
@@ -85,8 +99,14 @@ public class GpsLoggingService extends Service {
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
-    @Override public void onDestroy() {
+    
+    @Override 
+    public void onDestroy() {
         super.onDestroy();
         fusedLocationClient.removeLocationUpdates(locationCallback);
+        // ✅ サービス停止時にサーバーも安全に止める
+        if (webServer != null) {
+            webServer.stop();
+        }
     }
 }
