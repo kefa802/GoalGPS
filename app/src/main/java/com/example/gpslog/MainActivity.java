@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion;
+    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut;
     private Switch switchRecord;
     private RecyclerView rvLogs;
     private AppDatabase db;
@@ -39,6 +39,10 @@ public class MainActivity extends AppCompatActivity {
     private Calendar displayDate = Calendar.getInstance();
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable;
+
+    // ✅ 画面描画をサボらせないための「リスト」と「アダプター」
+    private List<LocationEntity> masterLocations = new ArrayList<>();
+    private LogAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,14 +53,16 @@ public class MainActivity extends AppCompatActivity {
         tvDate = findViewById(R.id.tvDate);
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
-        tvVersion = findViewById(R.id.tvVersion);
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: " + BuildConfig.VERSION_NAME);
 
+        // ✅ アダプターを「1回だけ」セットする（これが真っ白バグの解決策）
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new LogAdapter();
+        rvLogs.setAdapter(adapter);
+        rvLogs.setItemAnimator(null); // チカチカ防止
 
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1));
         findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
@@ -65,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
             isHourUnit = (id == R.id.rbHour);
             String u = isHourUnit ? "(時)" : "(分)";
             tvHeaderIn.setText("IN" + u); tvHeaderOut.setText("OUT" + u);
-            refreshDashboard();
+            refreshData();
         });
 
         switchRecord.setOnClickListener(v -> {
@@ -74,9 +80,10 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
 
+        // 毎秒リストの「中身の数字」だけを更新する
         updateRunnable = new Runnable() {
             @Override public void run() {
-                if (isToday()) refreshDashboard(); // ✅ 昔動いていた手法：毎秒シンプルにリストを再描画
+                refreshData();
                 updateHandler.postDelayed(this, 1000);
             }
         };
@@ -90,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateDateDisplay() {
         tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(displayDate.getTime()));
-        refreshDashboard();
+        refreshData();
     }
 
     private boolean isToday() {
@@ -99,75 +106,14 @@ public class MainActivity extends AppCompatActivity {
                today.get(Calendar.DAY_OF_YEAR) == displayDate.get(Calendar.DAY_OF_YEAR);
     }
 
-    // ✅ 小細工なし、一番確実なリスト描画ロジック
-    private void refreshDashboard() {
-        List<LocationEntity> locs = db.locationDao().getAll();
-        
-        rvLogs.setAdapter(new RecyclerView.Adapter<LogViewHolder>() {
-            @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
-                return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
-            }
-
-            @Override public void onBindViewHolder(@NonNull LogViewHolder h, int pos) {
-                LocationEntity loc = locs.get(pos);
-                h.name.setText(loc.name != null ? loc.name : "不明");
-
-                Calendar endCal = (Calendar) displayDate.clone();
-                endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
-                long endOfDay = endCal.getTimeInMillis();
-
-                Calendar startCal = (Calendar) displayDate.clone();
-                startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
-                long startOfDay = startCal.getTimeInMillis();
-
-                LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, endOfDay);
-                
-                boolean today = isToday();
-                long referenceTime = today ? System.currentTimeMillis() : endOfDay;
-
-                if (latest != null && latest.exitTime == 0 && today) {
-                    h.in.setText(formatDuration(referenceTime - latest.entryTime));
-                    h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
-                    h.out.setText("0:00");
-                    h.out.setBackgroundColor(Color.TRANSPARENT);
-                } else {
-                    h.in.setBackgroundColor(Color.TRANSPARENT);
-                    h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
-                    
-                    if (pos == 0) {
-                        h.out.setText("0:00");
-                        h.out.setBackgroundColor(Color.TRANSPARENT);
-                    } else {
-                        long outMs;
-                        if (latest != null) {
-                            outMs = referenceTime - (latest.exitTime == 0 ? referenceTime : latest.exitTime);
-                        } else {
-                            outMs = referenceTime - startOfDay;
-                        }
-                        h.out.setText(formatDuration(outMs));
-                        h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
-                    }
-                }
-
-                h.btnUp.setOnClickListener(v -> { if (pos > 0) swap(pos, pos - 1); });
-                h.btnDown.setOnClickListener(v -> { if (pos < locs.size() - 1) swap(pos, pos + 1); });
-                h.btnDel.setOnClickListener(v -> { 
-                    db.locationDao().delete(loc); 
-                    refreshDashboard(); 
-                });
-            }
-            @Override public int getItemCount() { return locs.size(); }
-        });
-    }
-
-    private void swap(int f, int t) {
-        List<LocationEntity> list = db.locationDao().getAll();
-        LocationEntity from = list.get(f), to = list.get(t);
-        int temp = from.displayOrder;
-        from.displayOrder = to.displayOrder;
-        to.displayOrder = temp;
-        db.locationDao().update(from); db.locationDao().update(to);
-        refreshDashboard();
+    // ✅ リスト全体を破壊せず、データだけを入れ替えて画面に伝える
+    private void refreshData() {
+        List<LocationEntity> freshData = db.locationDao().getAll();
+        masterLocations.clear();
+        if (freshData != null) {
+            masterLocations.addAll(freshData);
+        }
+        adapter.notifyDataSetChanged();
     }
 
     private String formatDuration(long ms) {
@@ -177,16 +123,8 @@ public class MainActivity extends AppCompatActivity {
         return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        updateUI(isServiceRunning(GpsLoggingService.class));
-        refreshDashboard();
-        updateHandler.post(updateRunnable);
-    }
-
-    @Override
-    protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
+    @Override protected void onResume() { super.onResume(); updateUI(isServiceRunning(GpsLoggingService.class)); refreshData(); updateHandler.post(updateRunnable); }
+    @Override protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
 
     private void updateUI(boolean run) {
         switchRecord.setChecked(run);
@@ -200,9 +138,7 @@ public class MainActivity extends AppCompatActivity {
             List<String> perms = new ArrayList<>();
             perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
             perms.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                perms.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { perms.add(Manifest.permission.POST_NOTIFICATIONS); }
             ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), 1);
             Toast.makeText(this, "位置情報の権限を許可してください", Toast.LENGTH_LONG).show();
             return;
@@ -224,6 +160,69 @@ public class MainActivity extends AppCompatActivity {
             if (sc.getName().equals(s.service.getClassName())) return true;
         }
         return false;
+    }
+
+    class LogAdapter extends RecyclerView.Adapter<LogViewHolder> {
+        @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
+            return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
+        }
+
+        @Override public void onBindViewHolder(@NonNull LogViewHolder h, int pos) {
+            LocationEntity loc = masterLocations.get(pos);
+            h.name.setText(loc.name != null ? loc.name : "不明");
+
+            Calendar endCal = (Calendar) displayDate.clone();
+            endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
+            long endOfDay = endCal.getTimeInMillis();
+
+            Calendar startCal = (Calendar) displayDate.clone();
+            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
+            long startOfDay = startCal.getTimeInMillis();
+
+            LocationLogEntity latest = null;
+            try { latest = db.locationDao().getLatestLog(loc.id, endOfDay); } catch(Exception e){}
+            
+            boolean today = isToday();
+            long referenceTime = today ? System.currentTimeMillis() : endOfDay;
+
+            if (latest != null && latest.exitTime == 0 && today) {
+                h.in.setText(formatDuration(referenceTime - latest.entryTime));
+                h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
+                h.out.setText("0:00");
+                h.out.setBackgroundColor(Color.TRANSPARENT);
+            } else {
+                h.in.setBackgroundColor(Color.TRANSPARENT);
+                h.in.setText(latest != null ? formatDuration(latest.stayDuration) : "0:00");
+                
+                if (pos == 0) {
+                    h.out.setText("0:00");
+                    h.out.setBackgroundColor(Color.TRANSPARENT);
+                } else {
+                    long outMs;
+                    if (latest != null) {
+                        outMs = referenceTime - (latest.exitTime == 0 ? referenceTime : latest.exitTime);
+                    } else {
+                        outMs = referenceTime - startOfDay;
+                    }
+                    h.out.setText(formatDuration(outMs));
+                    h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
+                }
+            }
+
+            h.btnUp.setOnClickListener(v -> { if (pos > 0) swap(pos, pos - 1); });
+            h.btnDown.setOnClickListener(v -> { if (pos < masterLocations.size() - 1) swap(pos, pos + 1); });
+            h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); });
+        }
+        @Override public int getItemCount() { return masterLocations.size(); }
+    }
+
+    private void swap(int f, int t) {
+        LocationEntity from = masterLocations.get(f), to = masterLocations.get(t);
+        int temp = from.displayOrder;
+        from.displayOrder = to.displayOrder;
+        to.displayOrder = temp;
+        db.locationDao().update(from); db.locationDao().update(to);
+        refreshData();
     }
 
     static class LogViewHolder extends RecyclerView.ViewHolder {
