@@ -48,8 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isCurrentlyMocking = false;
 
     private BroadcastReceiver locationReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
+        @Override public void onReceive(Context context, Intent intent) {
             double lat = intent.getDoubleExtra("lat", 0);
             double lng = intent.getDoubleExtra("lng", 0);
             isCurrentlyMocking = intent.getBooleanExtra("is_mock", false);
@@ -61,13 +60,12 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvHeaderIn = findViewById(R.id.tvHeaderIn); tvHeaderOut = findViewById(R.id.tvHeaderOut); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); rvLogs = findViewById(R.id.rvDashboardLogs);
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.1.9"); // ✅ バージョン更新
+        tvVersion.setText("Ver: 1.2.0");
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> {
@@ -98,7 +96,16 @@ public class MainActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    private String formatDuration(long ms) { long sec = ms / 1000; if (isHourUnit) { long min = sec / 60; return min == 0 ? "0.00" : String.format(Locale.JAPAN, "%.2f", (double) min / 60.0); } return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60); }
+    private String formatDuration(long ms) { 
+        if (ms < 0) ms = 0;
+        long sec = ms / 1000; 
+        if (isHourUnit) { 
+            long min = sec / 60; 
+            return min == 0 ? "0.00" : String.format(Locale.JAPAN, "%.2f", (double) min / 60.0); 
+        } 
+        return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60); 
+    }
+    
     @Override protected void onResume() { super.onResume(); updateUI(isServiceRunning(GpsLoggingService.class)); refreshData(); updateHandler.post(updateRunnable); IntentFilter filter = new IntentFilter("GPS_LOCATION_UPDATE"); if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { registerReceiver(locationReceiver, filter, Context.RECEIVER_NOT_EXPORTED); } else { registerReceiver(locationReceiver, filter); } }
     @Override protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); unregisterReceiver(locationReceiver); }
     private void updateUI(boolean run) { switchRecord.setChecked(run); if (run) { String mockText = isCurrentlyMocking ? " 【ワープ中】" : ""; tvStatusBanner.setText("オンライン：自動記録中" + mockText + "\n[現在地] " + currentLocationStr); tvStatusBanner.setBackgroundColor(Color.parseColor("#4CAF50")); } else { tvStatusBanner.setText("オフライン\n[現在地] 記録停止中"); tvStatusBanner.setBackgroundColor(Color.parseColor("#9E9E9E")); } }
