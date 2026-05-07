@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.1.3"); // ✅ バージョン更新
+        tvVersion.setText("Ver: 1.1.4"); // ✅ バージョン更新
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
@@ -81,9 +81,12 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
 
+        // ✅ オフライン時は1秒ごとの更新ループ自体を止めてバッテリーを節約
         updateRunnable = new Runnable() {
             @Override public void run() {
-                refreshData();
+                if (switchRecord.isChecked() && isToday()) {
+                    refreshData();
+                }
                 updateHandler.postDelayed(this, 1000);
             }
         };
@@ -114,7 +117,6 @@ public class MainActivity extends AppCompatActivity {
 
         if (freshData != null && !freshData.isEmpty()) {
             for (LocationEntity loc : freshData) {
-                // ✅ 修正のコア：データが空っぽ（クリア直後や新規登録）の場合、今の時間を基準にするダミーを仕込む
                 LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, now);
                 if (latest == null) {
                     LocationLogEntity dummy = new LocationLogEntity();
@@ -135,13 +137,12 @@ public class MainActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    // ✅ 秒の切り捨てロジックを強化し、59秒までは絶対に0.00にする
     private String formatDuration(long ms) {
         if (ms < 0) ms = 0;
         long sec = ms / 1000;
         if (isHourUnit) {
-            long min = sec / 60; // 秒を切り捨て
-            if (min == 0) return "0.00"; // 0分なら絶対に0.00
+            long min = sec / 60; 
+            if (min == 0) return "0.00"; 
             return String.format(Locale.JAPAN, "%.2f", (double) min / 60.0);
         }
         return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
@@ -178,7 +179,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void stopGpsService() { stopService(new Intent(this, GpsLoggingService.class)); updateUI(false); }
+    private void stopGpsService() { 
+        stopService(new Intent(this, GpsLoggingService.class)); 
+        updateUI(false); 
+        
+        // ✅ オフラインにした瞬間、現在進行中（IN）のログを確定させてカウントを永久ストップする
+        long now = System.currentTimeMillis();
+        List<LocationEntity> locs = db.locationDao().getAll();
+        if (locs != null) {
+            for (LocationEntity loc : locs) {
+                LocationLogEntity activeLog = db.locationDao().getActiveLog(loc.id);
+                if (activeLog != null) {
+                    activeLog.exitTime = now;
+                    activeLog.stayDuration = now - activeLog.entryTime;
+                    db.locationDao().updateLog(activeLog);
+                }
+            }
+        }
+        refreshData(); 
+    }
 
     private boolean isServiceRunning(Class<?> sc) {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
@@ -201,25 +220,39 @@ public class MainActivity extends AppCompatActivity {
             endCal.set(Calendar.HOUR_OF_DAY, 23); endCal.set(Calendar.MINUTE, 59); endCal.set(Calendar.SECOND, 59);
             long endOfDay = endCal.getTimeInMillis();
 
+            Calendar startCal = (Calendar) displayDate.clone();
+            startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
+            long startOfDay = startCal.getTimeInMillis();
+
             LocationLogEntity latest = null;
             try { latest = db.locationDao().getLatestLog(loc.id, endOfDay); } catch(Exception e){}
             
+            boolean isOnline = switchRecord.isChecked();
             boolean today = isToday();
             long referenceTime = today ? System.currentTimeMillis() : endOfDay;
 
             if (latest != null) {
                 if (latest.exitTime == 0 && today) {
+                    // 現在滞在中
                     h.in.setText(formatDuration(referenceTime - latest.entryTime));
-                    h.in.setBackgroundColor(Color.parseColor("#C8E6C9"));
+                    h.in.setBackgroundColor(isOnline ? Color.parseColor("#C8E6C9") : Color.TRANSPARENT);
                     h.out.setText("0:00");
                     h.out.setBackgroundColor(Color.TRANSPARENT);
                 } else {
+                    // 退出済み（またはオフラインでログが確定済み）
                     h.in.setText(formatDuration(latest.stayDuration));
                     h.in.setBackgroundColor(Color.TRANSPARENT);
                     
-                    long outMs = referenceTime - latest.exitTime;
-                    h.out.setText(formatDuration(outMs));
-                    h.out.setBackgroundColor(today ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
+                    if (isOnline && today) {
+                        // オンラインならOUTの時間をカウント
+                        long outMs = referenceTime - latest.exitTime;
+                        h.out.setText(formatDuration(outMs));
+                        h.out.setBackgroundColor(Color.parseColor("#FFCDD2"));
+                    } else {
+                        // ✅ オフライン時はOUTもカウントを停止し、色も消す
+                        h.out.setText("0:00");
+                        h.out.setBackgroundColor(Color.TRANSPARENT);
+                    }
                 }
             } else {
                 h.in.setText("0:00");
@@ -234,18 +267,18 @@ public class MainActivity extends AppCompatActivity {
                     .setTitle(loc.name + " の操作")
                     .setItems(items, (dialog, which) -> {
                         switch (which) {
-                            case 0: // 時間クリア
+                            case 0: 
                                 db.locationDao().deleteLogsByLocationId(loc.id);
-                                refreshData(); // 呼び出すだけで裏側でダミーが作られ、カウントが即再開！
+                                refreshData();
                                 Toast.makeText(MainActivity.this, "時間をリセットしました", Toast.LENGTH_SHORT).show();
                                 break;
-                            case 1: // 上へ移動
+                            case 1: 
                                 if (pos > 0) swap(pos, pos - 1);
                                 break;
-                            case 2: // 下へ移動
+                            case 2: 
                                 if (pos < masterLocations.size() - 1) swap(pos, pos + 1);
                                 break;
-                            case 3: // 削除
+                            case 3: 
                                 db.locationDao().deleteLogsByLocationId(loc.id);
                                 db.locationDao().delete(loc);
                                 refreshData();
