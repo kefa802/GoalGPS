@@ -4,55 +4,92 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
+import java.util.Collections;
 import java.util.List;
 
 public class HistoryActivity extends AppCompatActivity {
+    private LocationDao dao;
+    private List<LocationEntity> locationList;
+    private RecyclerView rv;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_history);
 
-        RecyclerView rv = findViewById(R.id.rvHistory);
+        rv = findViewById(R.id.rvHistory);
         rv.setLayoutManager(new LinearLayoutManager(this));
 
-        // データベースから全件取得
         AppDatabase db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db")
                 .allowMainThreadQueries().build();
-        List<LocationEntity> list = db.locationDao().getAll();
+        dao = db.locationDao();
 
-        // 表示用のアダプターをセット
-        rv.setAdapter(new RecyclerView.Adapter<ViewHolder>() {
-            @NonNull
-            @Override
-            public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-                View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_location, parent, false);
-                return new ViewHolder(v);
-            }
-
-            @Override
-            public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-                LocationEntity item = list.get(position);
-                holder.tvName.setText(item.name);
-                holder.tvCoord.setText(String.format("緯度: %.6f, 経度: %.6f", item.latitude, item.longitude));
-            }
-
-            @Override
-            public int getItemCount() { return list.size(); }
-        });
+        refreshList();
     }
 
-    static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView tvName, tvCoord;
-        ViewHolder(View v) {
+    private void refreshList() {
+        locationList = dao.getAll();
+        rv.setAdapter(new LocationAdapter());
+    }
+
+    class LocationAdapter extends RecyclerView.Adapter<LocationViewHolder> {
+        @NonNull @Override public LocationViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
+            return new LocationViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_location, p, false));
+        }
+
+        @Override public void onBindViewHolder(@NonNull LocationViewHolder h, int p) {
+            LocationEntity loc = locationList.get(p);
+            h.name.setText(loc.name);
+
+            // 削除ボタン
+            h.btnDelete.setOnClickListener(v -> {
+                dao.delete(loc);
+                refreshList();
+            });
+
+            // 上へ移動 ✅
+            h.btnUp.setOnClickListener(v -> {
+                if (p > 0) swap(p, p - 1);
+            });
+
+            // 下へ移動 ✅
+            h.btnDown.setOnClickListener(v -> {
+                if (p < locationList.size() - 1) swap(p, p + 1);
+            });
+        }
+
+        private void swap(int from, int to) {
+            LocationEntity fromLoc = locationList.get(from);
+            LocationEntity toLoc = locationList.get(to);
+            
+            // displayOrderを入れ替えて保存
+            int tempOrder = fromLoc.displayOrder;
+            fromLoc.displayOrder = toLoc.displayOrder;
+            toLoc.displayOrder = tempOrder;
+
+            dao.update(fromLoc);
+            dao.update(toLoc);
+            refreshList();
+        }
+
+        @Override public int getItemCount() { return locationList.size(); }
+    }
+
+    static class LocationViewHolder extends RecyclerView.ViewHolder {
+        TextView name; Button btnUp, btnDown, btnDelete;
+        LocationViewHolder(View v) {
             super(v);
-            tvName = v.findViewById(R.id.tvLocationName);
-            tvCoord = v.findViewById(R.id.tvCoordinates);
+            name = v.findViewById(R.id.tvLocationName);
+            btnUp = v.findViewById(R.id.btnUp);
+            btnDown = v.findViewById(R.id.btnDown);
+            btnDelete = v.findViewById(R.id.btnDelete);
         }
     }
 }
