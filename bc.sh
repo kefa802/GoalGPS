@@ -1,6 +1,3 @@
-cd /workspaces/GoalGPS
-
-cat << 'EOF' > bc.sh
 #!/bin/bash
 LOG_FILE="last_build_error.log"
 echo "=== Build Started at $(date) ===" > $LOG_FILE
@@ -51,7 +48,3 @@ else
     grep -A 50 "What went wrong:" $LOG_FILE
 fi
 exit 0
-EOF
-
-chmod +x bc.sh
-./bc.sh

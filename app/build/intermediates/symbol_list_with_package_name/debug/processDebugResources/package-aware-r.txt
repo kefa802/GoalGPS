@@ -3563,6 +3563,7 @@ id transition_scene_layoutid_cache
 id transition_transform
 id triangle
 id tvDate
+id tvEmptyMessage
 id tvHeaderIn
 id tvHeaderOut
 id tvLocationName
@@ -3570,6 +3571,7 @@ id tvLogInTime
 id tvLogName
 id tvLogOutTime
 id tvStatusBanner
+id tvVersion
 id unchecked
 id uniform
 id unlabeled

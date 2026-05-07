@@ -5,11 +5,48 @@
     android:orientation="vertical"
     android:background="#F5F5F5">
 
-    <TextView android:id="@+id/tvStatusBanner" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="オフライン" android:textColor="#FFFFFF" android:padding="12dp" android:gravity="center" android:background="#9E9E9E" />
+    <TextView
+        android:id="@+id/tvStatusBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="オフライン"
+        android:textColor="#FFFFFF"
+        android:padding="12dp"
+        android:gravity="center"
+        android:background="#9E9E9E" />
 
-    <RelativeLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:background="#FFFFFF">
-        <Switch android:id="@+id/switchRecord" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Online " android:layout_alignParentRight="true" />
-        <Button android:id="@+id/btnRegister" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="地点登録" />
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:background="#FFFFFF">
+
+        <Button
+            android:id="@+id/btnRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="地点登録"
+            android:layout_alignParentLeft="true"
+            android:layout_centerVertical="true"
+            android:backgroundTint="#2196F3" />
+
+        <TextView
+            android:id="@+id/tvVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ver: 1.0.0"
+            android:textColor="#888888"
+            android:textSize="12sp"
+            android:layout_alignParentRight="true" />
+
+        <Switch
+            android:id="@+id/switchRecord"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Online "
+            android:layout_alignParentRight="true"
+            android:layout_below="@id/tvVersion"
+            android:layout_marginTop="8dp"/>
     </RelativeLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:padding="8dp">
@@ -23,12 +60,34 @@
         <RadioButton android:id="@+id/rbHour" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="時" />
     </RadioGroup>
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="#E0E0E0" android:paddingVertical="8dp" android:paddingHorizontal="8dp">
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#E0E0E0"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="8dp"
+        android:weightSum="5.5"> 
+        
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="left|center_vertical" android:textStyle="bold" android:textColor="#333333" android:paddingLeft="8dp"/>
         <TextView android:id="@+id/tvHeaderIn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IN(分)" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
         <TextView android:id="@+id/tvHeaderOut" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="OUT(分)" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
-        <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1.5" />
+        <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1.5" /> 
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvDashboardLogs" android:layout_width="match_parent" android:layout_height="match_parent" />
+    <TextView
+        android:id="@+id/tvEmptyMessage"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="地点がまだ登録されていません。\n左上の「地点登録」から追加してください。"
+        android:textSize="16sp"
+        android:textColor="#888888"
+        android:visibility="gone" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvDashboardLogs"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 </LinearLayout>

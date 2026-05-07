@@ -20,6 +20,7 @@ id rvDashboardLogs
 id rvHistory
 id switchRecord
 id tvDate
+id tvEmptyMessage
 id tvHeaderIn
 id tvHeaderOut
 id tvLocationName
@@ -27,6 +28,7 @@ id tvLogInTime
 id tvLogName
 id tvLogOutTime
 id tvStatusBanner
+id tvVersion
 layout activity_history
 layout activity_main
 layout activity_map
