@@ -40,7 +40,6 @@ public class MainActivity extends AppCompatActivity {
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable;
     
-    // ✅ リストを安定させるための原点回帰
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LogAdapter adapter;
 
@@ -58,10 +57,9 @@ public class MainActivity extends AppCompatActivity {
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
 
-        // ✅ アダプターは「1回だけ」セットする
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
-        adapter.setHasStableIds(true); // リストがチカチカするのを防ぐ
+        // 🚨 リストを消滅させていた「setHasStableIds(true)」などの小細工を完全に削除しました 🚨
         rvLogs.setAdapter(adapter);
 
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1));
@@ -74,14 +72,12 @@ public class MainActivity extends AppCompatActivity {
             refreshData();
         });
 
-        // ✅ スイッチの動作
         switchRecord.setOnClickListener(v -> {
             if (switchRecord.isChecked()) { startGpsService(); } else { stopGpsService(); }
         });
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
 
-        // ✅ 毎秒、愚直にリストの中身を更新する（一番確実な方法）
         updateRunnable = new Runnable() {
             @Override public void run() {
                 refreshData();
@@ -107,7 +103,6 @@ public class MainActivity extends AppCompatActivity {
                today.get(Calendar.DAY_OF_YEAR) == displayDate.get(Calendar.DAY_OF_YEAR);
     }
 
-    // ✅ 小細工なし。データを取ってきて画面に「更新しろ」と伝えるだけ
     private void refreshData() {
         List<LocationEntity> freshData = db.locationDao().getAll();
         masterLocations.clear();
@@ -124,16 +119,8 @@ public class MainActivity extends AppCompatActivity {
         return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        updateUI(isServiceRunning(GpsLoggingService.class));
-        refreshData();
-        updateHandler.post(updateRunnable);
-    }
-
-    @Override
-    protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
+    @Override protected void onResume() { super.onResume(); updateUI(isServiceRunning(GpsLoggingService.class)); refreshData(); updateHandler.post(updateRunnable); }
+    @Override protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
 
     private void updateUI(boolean run) {
         switchRecord.setChecked(run);
@@ -141,16 +128,15 @@ public class MainActivity extends AppCompatActivity {
         tvStatusBanner.setBackgroundColor(run ? Color.parseColor("#4CAF50") : Color.parseColor("#9E9E9E"));
     }
 
-    // ✅ オンラインが「すぐ戻る」原因を修正。エラーがあれば画面に出す
     private void startGpsService() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            switchRecord.setChecked(false); // 権限がないから戻す
+            switchRecord.setChecked(false);
             Toast.makeText(this, "位置情報の権限を許可してください", Toast.LENGTH_SHORT).show();
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
             return;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            switchRecord.setChecked(false); // 通知権限がないから戻す
+            switchRecord.setChecked(false);
             Toast.makeText(this, "通知の権限を許可してください", Toast.LENGTH_SHORT).show();
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 2);
             return;
@@ -160,7 +146,7 @@ public class MainActivity extends AppCompatActivity {
             startForegroundService(new Intent(this, GpsLoggingService.class));
             updateUI(true);
         } catch (Exception e) {
-            switchRecord.setChecked(false); // エラーで起動できなかったから戻す
+            switchRecord.setChecked(false);
             Toast.makeText(this, "起動エラー: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
@@ -179,11 +165,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     class LogAdapter extends RecyclerView.Adapter<LogViewHolder> {
-        // ✅ これを入れるとリストが安定して描画される
-        @Override public long getItemId(int position) {
-            return masterLocations.get(position).id;
-        }
-
         @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
             return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
         }
