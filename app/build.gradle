@@ -2,9 +2,9 @@ plugins {
     id 'com.android.application'
 }
 
-// ✅ 究極のバージョン管理：現在時刻を使う（ファイル不要で絶対に巻き戻らない）
-def vCode = (System.currentTimeMillis() / 1000).toInteger()
-def vName = "1.0." + new Date().format("MMdd.HHmm") // 例: 1.0.0507.1530
+// ✅ 修正：Gitに保存されるファイルは使わず、コマンド実行時の変数を受け取る
+def vCode = project.hasProperty('buildNum') ? project.property('buildNum').toInteger() : 1
+def vName = "1.0." + vCode
 
 android {
     namespace 'com.example.gpslog'
