@@ -51,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
         tvVersion = findViewById(R.id.tvVersion);
-        tvEmptyMessage = findViewById(R.id.tvEmptyMessage); // ✅ 追加
+        tvEmptyMessage = findViewById(R.id.tvEmptyMessage);
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
@@ -106,9 +106,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshData() {
-        masterLocations = db.locationDao().getAll();
+        // ✅ 修正：リストの「器」を変えずに「中身」だけを入れ替える（画面が迷子にならない鉄則）
+        List<LocationEntity> freshData = db.locationDao().getAll();
+        masterLocations.clear();
+        if (freshData != null) {
+            masterLocations.addAll(freshData);
+        }
         
-        // ✅ 0件かどうかの判定処理
         if (masterLocations.isEmpty()) {
             tvEmptyMessage.setVisibility(View.VISIBLE);
             rvLogs.setVisibility(View.GONE);
@@ -132,7 +136,6 @@ public class MainActivity extends AppCompatActivity {
         updateUI(isServiceRunning(GpsLoggingService.class));
         refreshData();
         
-        // ✅ 確認用ポップアップ：実際にデータベースから何件取れているか表示
         Toast.makeText(this, masterLocations.size() + "件の地点を読み込みました", Toast.LENGTH_SHORT).show();
         
         updateHandler.post(updateRunnable);
