@@ -39,8 +39,8 @@ public class MainActivity extends AppCompatActivity {
     private Calendar displayDate = Calendar.getInstance();
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable;
-
-    // ✅ 画面描画をサボらせないための「リスト」と「アダプター」
+    
+    // ✅ リストを安定させるための原点回帰
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LogAdapter adapter;
 
@@ -58,11 +58,11 @@ public class MainActivity extends AppCompatActivity {
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
 
-        // ✅ アダプターを「1回だけ」セットする（これが真っ白バグの解決策）
+        // ✅ アダプターは「1回だけ」セットする
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
         adapter = new LogAdapter();
+        adapter.setHasStableIds(true); // リストがチカチカするのを防ぐ
         rvLogs.setAdapter(adapter);
-        rvLogs.setItemAnimator(null); // チカチカ防止
 
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1));
         findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
@@ -74,13 +74,14 @@ public class MainActivity extends AppCompatActivity {
             refreshData();
         });
 
+        // ✅ スイッチの動作
         switchRecord.setOnClickListener(v -> {
             if (switchRecord.isChecked()) { startGpsService(); } else { stopGpsService(); }
         });
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
 
-        // 毎秒リストの「中身の数字」だけを更新する
+        // ✅ 毎秒、愚直にリストの中身を更新する（一番確実な方法）
         updateRunnable = new Runnable() {
             @Override public void run() {
                 refreshData();
@@ -106,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
                today.get(Calendar.DAY_OF_YEAR) == displayDate.get(Calendar.DAY_OF_YEAR);
     }
 
-    // ✅ リスト全体を破壊せず、データだけを入れ替えて画面に伝える
+    // ✅ 小細工なし。データを取ってきて画面に「更新しろ」と伝えるだけ
     private void refreshData() {
         List<LocationEntity> freshData = db.locationDao().getAll();
         masterLocations.clear();
@@ -123,8 +124,16 @@ public class MainActivity extends AppCompatActivity {
         return String.format(Locale.JAPAN, "%d:%02d", sec / 60, sec % 60);
     }
 
-    @Override protected void onResume() { super.onResume(); updateUI(isServiceRunning(GpsLoggingService.class)); refreshData(); updateHandler.post(updateRunnable); }
-    @Override protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateUI(isServiceRunning(GpsLoggingService.class));
+        refreshData();
+        updateHandler.post(updateRunnable);
+    }
+
+    @Override
+    protected void onPause() { super.onPause(); updateHandler.removeCallbacks(updateRunnable); }
 
     private void updateUI(boolean run) {
         switchRecord.setChecked(run);
@@ -132,27 +141,34 @@ public class MainActivity extends AppCompatActivity {
         tvStatusBanner.setBackgroundColor(run ? Color.parseColor("#4CAF50") : Color.parseColor("#9E9E9E"));
     }
 
+    // ✅ オンラインが「すぐ戻る」原因を修正。エラーがあれば画面に出す
     private void startGpsService() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            switchRecord.setChecked(false);
-            List<String> perms = new ArrayList<>();
-            perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
-            perms.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { perms.add(Manifest.permission.POST_NOTIFICATIONS); }
-            ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), 1);
-            Toast.makeText(this, "位置情報の権限を許可してください", Toast.LENGTH_LONG).show();
+            switchRecord.setChecked(false); // 権限がないから戻す
+            Toast.makeText(this, "位置情報の権限を許可してください", Toast.LENGTH_SHORT).show();
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
             return;
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            switchRecord.setChecked(false); // 通知権限がないから戻す
+            Toast.makeText(this, "通知の権限を許可してください", Toast.LENGTH_SHORT).show();
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 2);
+            return;
+        }
+        
         try {
             startForegroundService(new Intent(this, GpsLoggingService.class));
             updateUI(true);
         } catch (Exception e) {
-            switchRecord.setChecked(false);
-            Toast.makeText(this, "エラー: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            switchRecord.setChecked(false); // エラーで起動できなかったから戻す
+            Toast.makeText(this, "起動エラー: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
-    private void stopGpsService() { stopService(new Intent(this, GpsLoggingService.class)); updateUI(false); }
+    private void stopGpsService() { 
+        stopService(new Intent(this, GpsLoggingService.class)); 
+        updateUI(false); 
+    }
 
     private boolean isServiceRunning(Class<?> sc) {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
@@ -163,6 +179,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     class LogAdapter extends RecyclerView.Adapter<LogViewHolder> {
+        // ✅ これを入れるとリストが安定して描画される
+        @Override public long getItemId(int position) {
+            return masterLocations.get(position).id;
+        }
+
         @NonNull @Override public LogViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
             return new LogViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_log, p, false));
         }
@@ -213,6 +234,7 @@ public class MainActivity extends AppCompatActivity {
             h.btnDown.setOnClickListener(v -> { if (pos < masterLocations.size() - 1) swap(pos, pos + 1); });
             h.btnDel.setOnClickListener(v -> { db.locationDao().delete(loc); refreshData(); });
         }
+        
         @Override public int getItemCount() { return masterLocations.size(); }
     }
 
