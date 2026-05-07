@@ -104,6 +104,7 @@ public class GpsLoggingService extends Service {
         public MyWebServer(int port) { super(port); }
         @Override
         public Response serve(IHTTPSession session) {
+            Response response;
             if ("/logs".equals(session.getUri())) {
                 List<SimpleLog> resultList = new ArrayList<>();
                 List<LocationEntity> locs = db.locationDao().getAll();
@@ -127,9 +128,13 @@ public class GpsLoggingService extends Service {
                     }
                     resultList.add(new SimpleLog(loc.name, formatToHourMatched(totalIn), formatToHourMatched(totalOut)));
                 }
-                return newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(resultList));
+                response = newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(resultList));
+            } else {
+                response = newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Not Found");
             }
-            return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Not Found");
+            // ✅ 外部サイトからのアクセスを許可するヘッダーを追加
+            response.addHeader("Access-Control-Allow-Origin", "*");
+            return response;
         }
     }
 
