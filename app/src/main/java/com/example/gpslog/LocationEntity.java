@@ -7,4 +7,5 @@ public class LocationEntity {
     public String name;
     public double latitude;
     public double longitude;
+    public int displayOrder; // ✅ 追加：並び順を管理する
 }
