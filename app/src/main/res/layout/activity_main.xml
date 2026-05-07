@@ -24,6 +24,17 @@
         <RadioButton android:id="@+id/rbHour" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="時" />
     </RadioGroup>
 
+    <TextView
+        android:id="@+id/tvDebugCount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFF9C4"
+        android:textColor="#D32F2F"
+        android:padding="8dp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:text="DB確認中..." />
+
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="#E0E0E0" android:paddingVertical="8dp" android:paddingHorizontal="8dp" android:weightSum="5.5">
         <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="left|center_vertical" android:textStyle="bold" android:textColor="#333333" android:paddingLeft="8dp"/>
         <TextView android:id="@+id/tvHeaderIn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IN(分)" android:gravity="center" android:textStyle="bold" android:textColor="#333333"/>
