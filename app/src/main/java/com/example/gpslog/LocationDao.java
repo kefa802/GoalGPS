@@ -17,10 +17,13 @@ public interface LocationDao {
     @Update void updateLog(LocationLogEntity log);
     @Query("SELECT * FROM visit_logs ORDER BY entryTime DESC") List<LocationLogEntity> getAllLogs();
 
-    // ✅ 追加：指定した時間までの「最新のログ」を取得する（日付変更対応）
     @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND entryTime <= :endTime ORDER BY entryTime DESC LIMIT 1")
     LocationLogEntity getLatestLog(int locId, long endTime);
 
     @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND exitTime = 0 LIMIT 1")
     LocationLogEntity getActiveLog(int locId);
+
+    // ✅ 追加：特定の地点の時間をすべてリセット（削除）する命令
+    @Query("DELETE FROM visit_logs WHERE locationId = :locId")
+    void deleteLogsByLocationId(int locId);
 }
