@@ -3,57 +3,70 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center_horizontal">
+    android:background="#F5F5F5">
 
     <TextView
-        android:id="@+id/tvVersion"
+        android:id="@+id/tvStatusBanner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="end"
-        android:text="v1.0.0"
-        android:textSize="12sp"
-        android:textColor="#888888"/>
+        android:text="オフライン"
+        android:textColor="#FFFFFF"
+        android:padding="12dp"
+        android:gravity="center"
+        android:background="#9E9E9E" />
 
-    <TextView
-        android:id="@+id/tvStatus"
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:background="#FFFFFF">
+        <Switch
+            android:id="@+id/switchRecord"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Online "
+            android:layout_alignParentRight="true" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button android:id="@+id/btnStart" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="スタート" android:layout_marginRight="4dp"/>
+            <Button android:id="@+id/btnStop" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ストップ" android:layout_marginRight="4dp"/>
+            <Button android:id="@+id/btnRegister" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="地点登録" />
+        </LinearLayout>
+    </RelativeLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="8dp">
+        <TextView android:id="@+id/tvDate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2026/05/07" android:textSize="18sp" android:textStyle="bold" />
+    </LinearLayout>
+
+    <RadioGroup
+        android:id="@+id/rgUnit"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="GoalGPS 待機中"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="48dp"/>
+        android:orientation="horizontal"
+        android:layout_gravity="right"
+        android:layout_marginRight="16dp">
+        <RadioButton android:id="@+id/rbMin" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="分" android:checked="true" />
+        <RadioButton android:id="@+id/rbHour" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="時" />
+    </RadioGroup>
 
-    <Button
-        android:id="@+id/btnStart"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="スタート (GPS取得開始)"
-        android:textSize="18sp"
-        android:layout_marginBottom="16dp"/>
+        android:layout_height="wrap_content"
+        android:background="#E0E0E0"
+        android:padding="8dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="2" android:text="登録地点" android:gravity="center" />
+        <TextView android:id="@+id/tvHeaderIn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IN時間(分)" android:gravity="center" />
+        <TextView android:id="@+id/tvHeaderOut" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="OUT時間(分)" android:gravity="center" />
+    </LinearLayout>
 
-    <Button
-        android:id="@+id/btnStop"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvDashboardLogs"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="ストップ (GPS取得停止)"
-        android:textSize="18sp"
-        android:layout_marginBottom="48dp"/>
-
-    <Button
-        android:id="@+id/btnRegister"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="地点登録 (マップを開く)"
-        android:textSize="18sp"
-        android:layout_marginBottom="16dp"/>
-
-    <Button
-        android:id="@+id/btnHistory"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="履歴表示 (保存済み地点)"
-        android:textSize="18sp"
-        android:backgroundTint="#607D8B"/> 
+        android:layout_height="match_parent" />
 </LinearLayout>
