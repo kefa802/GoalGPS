@@ -4,28 +4,22 @@ plugins {
     id 'com.android.application'
 }
 
-// ✅ ビルド毎にバージョンを自動カウントアップ
-def versionPropsFile = file('../version.properties') // プロジェクトルートに保存
+// ✅ 修正：タイムラグを無くし、即座にカウントアップして同期させる
+def versionPropsFile = file('../version.properties')
 def Properties versionProps = new Properties()
 
 if (versionPropsFile.exists()) {
     versionProps.load(new FileInputStream(versionPropsFile))
 } else {
-    versionProps['VERSION_CODE'] = '1'
+    versionProps['VERSION_CODE'] = '0'
     versionProps['VERSION_NAME'] = '1.0.0'
-    versionPropsFile.createNewFile()
-    versionProps.store(versionPropsFile.newWriter(), null)
 }
 
-gradle.taskGraph.whenReady { taskGraph ->
-    if (taskGraph.hasTask(":app:assembleDebug")) {
-        def code = versionProps['VERSION_CODE'].toInteger()
-        versionProps['VERSION_CODE'] = (code + 1).toString()
-        versionProps.store(versionPropsFile.newWriter(), null)
-    }
-}
+// ビルドが走った瞬間に無条件で+1して保存
+def currentCode = versionProps['VERSION_CODE'].toInteger()
+versionProps['VERSION_CODE'] = (currentCode + 1).toString()
+versionProps.store(versionPropsFile.newWriter(), null)
 
-versionProps.load(new FileInputStream(versionPropsFile))
 def vCode = versionProps['VERSION_CODE'].toInteger()
 def vName = versionProps['VERSION_NAME']
 
@@ -41,7 +35,6 @@ android {
         versionName vName
     }
 
-    // ✅ エラー解決：BuildConfig 機能を有効化
     buildFeatures {
         buildConfig true
     }
