@@ -72,20 +72,17 @@ public class MainActivity extends AppCompatActivity {
             refreshData();
         });
 
-        // ✅ 修正：ループを防ぐため setOnCheckedChangeListener ではなく ClickListener を使用
         switchRecord.setOnClickListener(v -> {
-            if (switchRecord.isChecked()) {
-                startGpsService();
-            } else {
-                stopGpsService();
-            }
+            if (switchRecord.isChecked()) { startGpsService(); } else { stopGpsService(); }
         });
 
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
 
         updateRunnable = new Runnable() {
             @Override public void run() {
-                if (isToday()) adapter.notifyDataSetChanged();
+                if (isToday()) {
+                    runOnUiThread(() -> adapter.notifyDataSetChanged());
+                }
                 updateHandler.postDelayed(this, 1000);
             }
         };
@@ -111,10 +108,16 @@ public class MainActivity extends AppCompatActivity {
     private void refreshData() {
         List<LocationEntity> freshData = db.locationDao().getAll();
         masterLocations.clear();
-        if (freshData != null) {
+        if (freshData != null && !freshData.isEmpty()) {
             masterLocations.addAll(freshData);
         }
-        adapter.notifyDataSetChanged();
+        
+        // ✅ 修正：画面更新をシステムに強制的に割り込ませて確実に描画させる
+        runOnUiThread(() -> {
+            adapter.notifyDataSetChanged();
+            // 確認用ポップアップ
+            Toast.makeText(MainActivity.this, masterLocations.size() + "件読込済", Toast.LENGTH_SHORT).show();
+        });
     }
 
     private String formatDuration(long ms) {
@@ -142,9 +145,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startGpsService() {
-        // ✅ 修正：ACCESS_BACKGROUND_LOCATION を同時に要求しない（Androidの仕様）
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            switchRecord.setChecked(false); // 権限がない場合はスイッチを戻す
+            switchRecord.setChecked(false);
             List<String> perms = new ArrayList<>();
             perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
             perms.add(Manifest.permission.ACCESS_COARSE_LOCATION);
@@ -155,21 +157,16 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "位置情報の権限を許可してください", Toast.LENGTH_LONG).show();
             return;
         }
-
         try {
             startForegroundService(new Intent(this, GpsLoggingService.class));
             updateUI(true);
         } catch (Exception e) {
-            // ✅ 万が一サービスが起動できなかった場合に理由を画面に出す
             switchRecord.setChecked(false);
             Toast.makeText(this, "エラー: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
-    private void stopGpsService() { 
-        stopService(new Intent(this, GpsLoggingService.class)); 
-        updateUI(false); 
-    }
+    private void stopGpsService() { stopService(new Intent(this, GpsLoggingService.class)); updateUI(false); }
 
     private boolean isServiceRunning(Class<?> sc) {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
@@ -197,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
             long startOfDay = startCal.getTimeInMillis();
 
             LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, endOfDay);
-            h.name.setText(loc.name);
+            h.name.setText(loc.name != null ? loc.name : "不明な地点"); // ✅ 名前が空の時のクラッシュ防止
             
             boolean today = isToday();
             long referenceTime = today ? System.currentTimeMillis() : endOfDay;
