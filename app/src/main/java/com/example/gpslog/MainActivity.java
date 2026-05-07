@@ -15,7 +15,6 @@ import android.widget.Button;
 import android.widget.RadioGroup;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -30,7 +29,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion, tvDebug;
+    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion, tvEmptyMessage;
     private Switch switchRecord;
     private RecyclerView rvLogs;
     private AppDatabase db;
@@ -51,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
         tvVersion = findViewById(R.id.tvVersion);
-        tvDebug = findViewById(R.id.tvDebug); // ✅ デバッグ用
+        tvEmptyMessage = findViewById(R.id.tvEmptyMessage);
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
@@ -106,25 +105,18 @@ public class MainActivity extends AppCompatActivity {
     private void refreshData() {
         List<LocationEntity> freshData = db.locationDao().getAll();
         masterLocations.clear();
-        
-        // ✅ 画面上に裏側の真実をすべて出力する
-        StringBuilder debugInfo = new StringBuilder("【デバッグ情報】\n");
-
         if (freshData != null) {
             masterLocations.addAll(freshData);
-            debugInfo.append("DBから取得した地点数: ").append(freshData.size()).append("件\n");
-            for (LocationEntity loc : freshData) {
-                debugInfo.append(" - ").append(loc.name).append(" (ID:").append(loc.id).append(")\n");
-            }
-        } else {
-            debugInfo.append("DBから取得した地点数: null (エラー)\n");
         }
-
+        
+        if (masterLocations.isEmpty()) {
+            tvEmptyMessage.setVisibility(View.VISIBLE);
+            rvLogs.setVisibility(View.GONE);
+        } else {
+            tvEmptyMessage.setVisibility(View.GONE);
+            rvLogs.setVisibility(View.VISIBLE);
+        }
         adapter.notifyDataSetChanged();
-        
-        debugInfo.append("リスト画面が描画しようとしている件数: ").append(adapter.getItemCount()).append("件");
-        
-        tvDebug.setText(debugInfo.toString()); // 黄色いエリアに出力
     }
 
     private String formatDuration(long ms) {
