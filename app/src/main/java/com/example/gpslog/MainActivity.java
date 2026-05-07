@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion;
+    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion, tvEmptyMessage;
     private Switch switchRecord;
     private RecyclerView rvLogs;
     private AppDatabase db;
@@ -51,12 +51,12 @@ public class MainActivity extends AppCompatActivity {
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
         tvVersion = findViewById(R.id.tvVersion);
+        tvEmptyMessage = findViewById(R.id.tvEmptyMessage); // ✅ 追加
         switchRecord = findViewById(R.id.switchRecord);
         rvLogs = findViewById(R.id.rvDashboardLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
         
-        // ✅ ビルド毎に上がるバージョン番号を表示
         tvVersion.setText("Ver: " + BuildConfig.VERSION_NAME);
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this));
@@ -107,6 +107,15 @@ public class MainActivity extends AppCompatActivity {
 
     private void refreshData() {
         masterLocations = db.locationDao().getAll();
+        
+        // ✅ 0件かどうかの判定処理
+        if (masterLocations.isEmpty()) {
+            tvEmptyMessage.setVisibility(View.VISIBLE);
+            rvLogs.setVisibility(View.GONE);
+        } else {
+            tvEmptyMessage.setVisibility(View.GONE);
+            rvLogs.setVisibility(View.VISIBLE);
+        }
         adapter.notifyDataSetChanged();
     }
 
@@ -122,6 +131,10 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         updateUI(isServiceRunning(GpsLoggingService.class));
         refreshData();
+        
+        // ✅ 確認用ポップアップ：実際にデータベースから何件取れているか表示
+        Toast.makeText(this, masterLocations.size() + "件の地点を読み込みました", Toast.LENGTH_SHORT).show();
+        
         updateHandler.post(updateRunnable);
     }
 
@@ -170,7 +183,6 @@ public class MainActivity extends AppCompatActivity {
             startCal.set(Calendar.HOUR_OF_DAY, 0); startCal.set(Calendar.MINUTE, 0); startCal.set(Calendar.SECOND, 0);
             long startOfDay = startCal.getTimeInMillis();
 
-            // ✅ エラー修正：getLatestLog に endOfDay（時間）を正しく渡す
             LocationLogEntity latest = db.locationDao().getLatestLog(loc.id, endOfDay);
             h.name.setText(loc.name);
             
