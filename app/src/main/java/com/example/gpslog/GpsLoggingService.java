@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
 import android.os.Build;
@@ -23,7 +24,7 @@ import java.util.List;
 
 public class GpsLoggingService extends Service {
     private static final String CHANNEL_ID = "gps_service_channel";
-    private static final float GEOFENCE_RADIUS = 20.0f; // ✅ ④ IN/OUT判定を半径20mに設定
+    private static final float GEOFENCE_RADIUS = 20.0f; 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private AppDatabase db;
@@ -61,22 +62,29 @@ public class GpsLoggingService extends Service {
     private void handleLocationUpdate(Location location) {
         long now = System.currentTimeMillis();
 
-        // ✅ ① 現在地情報を MainActivity に送信（ブロードキャスト）
+        // ✅ ワープ機能（モック）の読み取り
+        android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
+        boolean isMock = prefs.getBoolean("is_mock", false);
+        double lat = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lat", 0)) : location.getLatitude();
+        double lng = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lng", 0)) : location.getLongitude();
+
+        // 現在地情報を MainActivity に送信
         Intent intent = new Intent("GPS_LOCATION_UPDATE");
-        intent.putExtra("lat", location.getLatitude());
-        intent.putExtra("lng", location.getLongitude());
+        intent.putExtra("lat", lat);
+        intent.putExtra("lng", lng);
+        intent.putExtra("is_mock", isMock);
         sendBroadcast(intent);
 
         List<LocationEntity> locs = db.locationDao().getAll();
         if (locs != null) {
             for (LocationEntity loc : locs) {
                 float[] results = new float[1];
-                Location.distanceBetween(location.getLatitude(), location.getLongitude(), loc.latitude, loc.longitude, results);
+                Location.distanceBetween(lat, lng, loc.latitude, loc.longitude, results);
                 float distance = results[0];
 
                 LocationLogEntity activeLog = db.locationDao().getActiveLog(loc.id);
 
-                if (distance <= GEOFENCE_RADIUS) { // 20m以内ならIN
+                if (distance <= GEOFENCE_RADIUS) { 
                     if (activeLog == null) {
                         LocationLogEntity newLog = new LocationLogEntity();
                         newLog.locationId = loc.id;
@@ -85,7 +93,7 @@ public class GpsLoggingService extends Service {
                         newLog.stayDuration = 0;
                         db.locationDao().insertLog(newLog);
                     }
-                } else { // 20mより離れたらOUT
+                } else { 
                     if (activeLog != null) {
                         activeLog.exitTime = now;
                         activeLog.stayDuration = now - activeLog.entryTime;
@@ -101,7 +109,7 @@ public class GpsLoggingService extends Service {
                 .setContentTitle("GoalGPS")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                .setPriority(NotificationCompat.PRIORITY_MIN) // 通知を最小化
+                .setPriority(NotificationCompat.PRIORITY_MIN)
                 .build();
     }
 
