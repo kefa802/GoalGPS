@@ -26,7 +26,10 @@ public interface LocationDao {
     @Query("DELETE FROM visit_logs WHERE locationId = :locId")
     void deleteLogsByLocationId(int locId);
 
-    // ✅ ③ 積算時間計算用：特定の日のログを「すべて」取得する
     @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND entryTime >= :startOfDay AND entryTime <= :endOfDay ORDER BY entryTime ASC")
     List<LocationLogEntity> getLogsForDay(int locId, long startOfDay, long endOfDay);
+
+    // ✅ 追加：特定の日付範囲のログのみを削除する
+    @Query("DELETE FROM visit_logs WHERE locationId = :locId AND entryTime >= :startTime AND entryTime <= :endTime")
+    void deleteLogsInRange(int locId, long startTime, long endTime);
 }
