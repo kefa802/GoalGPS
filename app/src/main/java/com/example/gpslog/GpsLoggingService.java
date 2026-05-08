@@ -26,14 +26,14 @@ import com.google.android.gms.location.Priority;
 import com.google.gson.Gson;
 import fi.iki.elonen.NanoHTTPD;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 public class GpsLoggingService extends Service {
     private static final String CHANNEL_ID = "gps_service_channel";
-    private static final float GEOFENCE_RADIUS = 20.0f; 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private AppDatabase db;
@@ -42,132 +42,96 @@ public class GpsLoggingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").allowMainThreadQueries().build();
+        db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel();
         startForeground(1, getNotification("GPSログ記録中..."));
         server = new MyWebServer(8080);
-        try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) { e.printStackTrace(); }
-        
-        LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).setMinUpdateIntervalMillis(2000).build();
+        try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) {}
+
+        // ✅ 15秒間隔（15000ms）に変更し、精度を「バランス」に落として節電
+        LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000)
+                .setMinUpdateIntervalMillis(10000)
+                .build();
+
         locationCallback = new LocationCallback() {
-            @Override public void onLocationResult(@NonNull LocationResult locationResult) {
-                if (locationResult == null) return;
-                for (Location location : locationResult.getLocations()) { handleLocationUpdate(location); }
+            @Override public void onLocationResult(@NonNull LocationResult result) {
+                for (Location location : result.getLocations()) { processLocation(location); }
             }
         };
-        try { fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper()); } catch (SecurityException e) { e.printStackTrace(); }
+        try { fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper()); } catch (SecurityException e) {}
     }
 
-    // ✅ タスクを閉じられた時に1秒後に自分を再起動する（ゾンビ化）
-    @Override
-    public void onTaskRemoved(Intent rootIntent) {
-        Intent restartServiceIntent = new Intent(getApplicationContext(), this.getClass());
-        restartServiceIntent.setPackage(getPackageName());
-        PendingIntent restartServicePendingIntent = PendingIntent.getService(
-            getApplicationContext(), 1, restartServiceIntent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
-        AlarmManager alarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
-        alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, restartServicePendingIntent);
-        super.onTaskRemoved(rootIntent);
-    }
-
-    private void handleLocationUpdate(Location location) {
-        long now = System.currentTimeMillis();
-        android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
-        boolean isMock = prefs.getBoolean("is_mock", false);
-        double lat = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lat", 0)) : location.getLatitude();
-        double lng = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lng", 0)) : location.getLongitude();
-
+    private void processLocation(Location location) {
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+        
         Intent intent = new Intent("GPS_LOCATION_UPDATE");
-        intent.putExtra("lat", lat); intent.putExtra("lng", lng); intent.putExtra("is_mock", isMock);
+        intent.putExtra("lat", location.getLatitude());
+        intent.putExtra("lng", location.getLongitude());
         sendBroadcast(intent);
 
         List<LocationEntity> locs = db.locationDao().getAll();
-        if (locs != null) {
-            for (LocationEntity loc : locs) {
-                float[] results = new float[1];
-                Location.distanceBetween(lat, lng, loc.latitude, loc.longitude, results);
-                float distance = results[0];
-                LocationLogEntity activeLog = db.locationDao().getActiveLog(loc.id);
-                if (distance <= GEOFENCE_RADIUS) { 
-                    if (activeLog == null) {
-                        LocationLogEntity newLog = new LocationLogEntity();
-                        newLog.locationId = loc.id; newLog.entryTime = now; newLog.exitTime = 0; newLog.stayDuration = 0;
-                        db.locationDao().insertLog(newLog);
-                    }
-                } else { 
-                    if (activeLog != null) {
-                        activeLog.exitTime = now; activeLog.stayDuration = now - activeLog.entryTime;
-                        db.locationDao().updateLog(activeLog);
-                    }
-                }
+        for (LocationEntity loc : locs) {
+            float[] dist = new float[1];
+            Location.distanceBetween(location.getLatitude(), location.getLongitude(), loc.latitude, loc.longitude, dist);
+
+            // 今日の箱がなければ作る
+            DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
+            if (data == null) {
+                data = new DailyAccumulator();
+                data.locationId = loc.id; data.date = today;
+                db.locationDao().insertDaily(data);
+                data = db.locationDao().getDaily(loc.id, today);
             }
+
+            // ✅ 20m以内ならINに15秒、外ならOUTに15秒足すだけの超シンプルロジック
+            if (dist[0] <= 20.0f) {
+                data.totalInMs += 15000;
+            } else {
+                data.totalOutMs += 15000;
+            }
+            db.locationDao().updateDaily(data);
         }
     }
 
-    private static class SimpleLog {
-        String name; String in_hour; String out_hour;
-        SimpleLog(String n, String i, String o) { this.name = n; this.in_hour = i; this.out_hour = o; }
-    }
-
-    private String formatToHourMatched(long ms) {
-        if (ms < 0) ms = 0;
-        long sec = ms / 1000;
-        long min = sec / 60; 
-        if (min == 0) return "0.00";
-        return String.format(Locale.US, "%.2f", (double) min / 60.0); // ✅ タイポ修正済み
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        Intent restart = new Intent(getApplicationContext(), this.getClass());
+        restart.setPackage(getPackageName());
+        PendingIntent pi = PendingIntent.getService(getApplicationContext(), 1, restart, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
+        ((AlarmManager)getSystemService(Context.ALARM_SERVICE)).set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, pi);
+        super.onTaskRemoved(rootIntent);
     }
 
     private class MyWebServer extends NanoHTTPD {
         public MyWebServer(int port) { super(port); }
-        @Override
-        public Response serve(IHTTPSession session) {
-            Response response;
-            if ("/logs".equals(session.getUri())) {
-                List<SimpleLog> resultList = new ArrayList<>();
-                List<LocationEntity> locs = db.locationDao().getAll();
-                Calendar cal = Calendar.getInstance();
-                long now = System.currentTimeMillis();
-                cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
-                long start = cal.getTimeInMillis();
-                cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59); cal.set(Calendar.SECOND, 59); cal.set(Calendar.MILLISECOND, 999);
-                long end = cal.getTimeInMillis();
-                for (LocationEntity loc : locs) {
-                    List<LocationLogEntity> dayLogs = db.locationDao().getLogsForDay(loc.id, start, end);
-                    long totalIn = 0, totalOut = 0;
-                    if (dayLogs != null && !dayLogs.isEmpty()) {
-                        for (int i = 0; i < dayLogs.size(); i++) {
-                            LocationLogEntity log = dayLogs.get(i);
-                            totalIn += (log.exitTime == 0) ? (now - log.entryTime) : log.stayDuration;
-                            if (i > 0) totalOut += (log.entryTime - dayLogs.get(i-1).exitTime);
-                        }
-                        LocationLogEntity last = dayLogs.get(dayLogs.size() - 1);
-                        if (last.exitTime != 0) totalOut += (now - last.exitTime);
-                    }
-                    resultList.add(new SimpleLog(loc.name, formatToHourMatched(totalIn), formatToHourMatched(totalOut)));
-                }
-                response = newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(resultList));
-            } else {
-                response = newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Not Found");
+        @Override public Response serve(IHTTPSession session) {
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+            List<Object> results = new ArrayList<>();
+            for (LocationEntity loc : db.locationDao().getAll()) {
+                DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
+                results.add(new Object(){
+                    String name = loc.name;
+                    String in_hour = (data != null) ? String.format(Locale.US, "%.2f", (double)data.totalInMs/3600000.0) : "0.00";
+                    String out_hour = (data != null) ? String.format(Locale.US, "%.2f", (double)data.totalOutMs/3600000.0) : "0.00";
+                });
             }
-            response.addHeader("Access-Control-Allow-Origin", "*"); // ✅ CORS対応
-            return response;
+            Response r = newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(results));
+            r.addHeader("Access-Control-Allow-Origin", "*");
+            return r;
         }
-    }
-
-    private Notification getNotification(String text) {
-        return new NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle("GoalGPS").setContentText(text).setSmallIcon(android.R.drawable.ic_menu_mylocation).setPriority(NotificationCompat.PRIORITY_MIN).build();
     }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "GPS記録サービス", NotificationManager.IMPORTANCE_MIN);
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) manager.createNotificationChannel(channel);
+            ((NotificationManager)getSystemService(NotificationManager.class)).createNotificationChannel(channel);
         }
     }
-
-    @Override public int onStartCommand(Intent intent, int flags, int startId) { return START_STICKY; }
-    @Override public void onDestroy() { super.onDestroy(); if (server != null) server.stop(); if (fusedLocationClient != null && locationCallback != null) fusedLocationClient.removeLocationUpdates(locationCallback); }
+    private Notification getNotification(String text) {
+        return new NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle("GoalGPS").setContentText(text).setSmallIcon(android.R.drawable.ic_menu_mylocation).setPriority(NotificationCompat.PRIORITY_MIN).build();
+    }
+    @Override public int onStartCommand(Intent i, int f, int s) { return START_STICKY; }
+    @Override public void onDestroy() { super.onDestroy(); if (server != null) server.stop(); }
     @Nullable @Override public IBinder onBind(Intent intent) { return null; }
 }
