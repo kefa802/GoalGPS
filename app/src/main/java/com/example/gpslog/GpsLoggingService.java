@@ -49,7 +49,6 @@ public class GpsLoggingService extends Service {
         server = new MyWebServer(8080);
         try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) {}
 
-        // 15秒間隔で省電力設定
         LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000)
                 .setMinUpdateIntervalMillis(10000)
                 .build();
@@ -64,14 +63,24 @@ public class GpsLoggingService extends Service {
 
     private void processLocation(Location location) {
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+        
+        // ✅ 復活：ワープ（モック）の読み取り
+        android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
+        boolean isMock = prefs.getBoolean("is_mock", false);
+        double lat = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lat", 0)) : location.getLatitude();
+        double lng = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lng", 0)) : location.getLongitude();
+
         Intent intent = new Intent("GPS_LOCATION_UPDATE");
-        intent.putExtra("lat", location.getLatitude()); intent.putExtra("lng", location.getLongitude());
+        intent.putExtra("lat", lat); 
+        intent.putExtra("lng", lng); 
+        intent.putExtra("is_mock", isMock); // ワープ中かどうかも画面に送る
         sendBroadcast(intent);
 
         List<LocationEntity> locs = db.locationDao().getAll();
         for (LocationEntity loc : locs) {
             float[] dist = new float[1];
-            Location.distanceBetween(location.getLatitude(), location.getLongitude(), loc.latitude, loc.longitude, dist);
+            // ✅ 偽装した lat/lng を使って距離計算する
+            Location.distanceBetween(lat, lng, loc.latitude, loc.longitude, dist);
             DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
             if (data == null) {
                 data = new DailyAccumulator(); data.locationId = loc.id; data.date = today;
