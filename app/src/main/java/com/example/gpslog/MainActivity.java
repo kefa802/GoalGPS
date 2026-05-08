@@ -41,11 +41,16 @@ public class MainActivity extends AppCompatActivity {
     private Calendar displayDate = Calendar.getInstance();
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LogAdapter adapter;
+    
     private String currentLocationStr = "取得中...";
+    private double currentLat = 0.0; // ✅ 追加：現在地の緯度
+    private double currentLng = 0.0; // ✅ 追加：現在地の経度
 
     private BroadcastReceiver locationReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            currentLocationStr = String.format(Locale.US, "%.5f, %.5f", intent.getDoubleExtra("lat", 0), intent.getDoubleExtra("lng", 0));
+            currentLat = intent.getDoubleExtra("lat", 0);
+            currentLng = intent.getDoubleExtra("lng", 0);
+            currentLocationStr = String.format(Locale.US, "%.5f, %.5f", currentLat, currentLng);
             updateUI(isServiceRunning(GpsLoggingService.class));
         }
     };
@@ -55,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvHeaderIn = findViewById(R.id.tvHeaderIn); tvHeaderOut = findViewById(R.id.tvHeaderOut); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); rvLogs = findViewById(R.id.rvDashboardLogs);
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.2.5");
+        tvVersion.setText("Ver: 1.2.6"); // ✅ バージョン更新
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { isHourUnit = (id == R.id.rbHour); refreshData(); });
@@ -94,11 +99,36 @@ public class MainActivity extends AppCompatActivity {
             String date = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayDate.getTime());
             DailyAccumulator d = db.locationDao().getDaily(loc.id, date);
             long in = (d != null) ? d.totalInMs : 0, out = (d != null) ? d.totalOutMs : 0;
+            
             if (isHourUnit) {
-                h.in.setText(String.format(Locale.JAPAN, "%.2f", (double)(in/60000)/60.0)); h.out.setText(String.format(Locale.JAPAN, "%.2f", (double)(out/60000)/60.0));
+                h.in.setText(String.format(Locale.JAPAN, "%.2f", (double)(in/60000)/60.0));
+                h.out.setText(String.format(Locale.JAPAN, "%.2f", (double)(out/60000)/60.0));
             } else {
-                h.in.setText(String.format(Locale.JAPAN, "%d:%02d", (in/1000)/60, (in/1000)%60)); h.out.setText(String.format(Locale.JAPAN, "%d:%02d", (out/1000)/60, (out/1000)%60));
+                h.in.setText(String.format(Locale.JAPAN, "%d:%02d", (in/1000)/60, (in/1000)%60));
+                h.out.setText(String.format(Locale.JAPAN, "%d:%02d", (out/1000)/60, (out/1000)%60));
             }
+
+            // ✅ リアルタイムの距離判定による色塗りロジックを追加
+            boolean isOnline = switchRecord.isChecked();
+            boolean isToday = isToday();
+            boolean isCurrentlyIn = false;
+
+            if (isOnline && isToday && currentLat != 0.0 && currentLng != 0.0) {
+                float[] dist = new float[1];
+                android.location.Location.distanceBetween(currentLat, currentLng, loc.latitude, loc.longitude, dist);
+                if (dist[0] <= 20.0f) {
+                    isCurrentlyIn = true;
+                }
+            }
+
+            if (isOnline && isToday) {
+                h.in.setBackgroundColor(isCurrentlyIn ? Color.parseColor("#C8E6C9") : Color.TRANSPARENT);
+                h.out.setBackgroundColor(!isCurrentlyIn ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
+            } else {
+                h.in.setBackgroundColor(Color.TRANSPARENT);
+                h.out.setBackgroundColor(Color.TRANSPARENT);
+            }
+            
             h.itemView.setOnLongClickListener(v -> {
                 new AlertDialog.Builder(MainActivity.this).setTitle(loc.name).setItems(new String[]{"この日をクリア", "削除", "📍 ここにワープ"}, (dialog, which) -> {
                     if (which == 0) { db.locationDao().deleteDaily(loc.id, date); refreshData(); }
