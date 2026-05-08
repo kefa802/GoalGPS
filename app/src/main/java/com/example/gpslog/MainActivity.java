@@ -55,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvHeaderIn = findViewById(R.id.tvHeaderIn); tvHeaderOut = findViewById(R.id.tvHeaderOut); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); rvLogs = findViewById(R.id.rvDashboardLogs);
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.2.3");
+        tvVersion.setText("Ver: 1.2.4");
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { isHourUnit = (id == R.id.rbHour); refreshData(); });
@@ -94,15 +94,11 @@ public class MainActivity extends AppCompatActivity {
             String date = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayDate.getTime());
             DailyAccumulator d = db.locationDao().getDaily(loc.id, date);
             long in = (d != null) ? d.totalInMs : 0, out = (d != null) ? d.totalOutMs : 0;
-            
             if (isHourUnit) {
-                h.in.setText(String.format(Locale.JAPAN, "%.2f", (double)(in/60000)/60.0));
-                h.out.setText(String.format(Locale.JAPAN, "%.2f", (double)(out/60000)/60.0));
+                h.in.setText(String.format(Locale.JAPAN, "%.2f", (double)(in/60000)/60.0)); h.out.setText(String.format(Locale.JAPAN, "%.2f", (double)(out/60000)/60.0));
             } else {
-                h.in.setText(String.format(Locale.JAPAN, "%d:%02d", (in/1000)/60, (in/1000)%60));
-                h.out.setText(String.format(Locale.JAPAN, "%d:%02d", (out/1000)/60, (out/1000)%60));
+                h.in.setText(String.format(Locale.JAPAN, "%d:%02d", (in/1000)/60, (in/1000)%60)); h.out.setText(String.format(Locale.JAPAN, "%d:%02d", (out/1000)/60, (out/1000)%60));
             }
-            
             h.itemView.setOnLongClickListener(v -> {
                 new AlertDialog.Builder(MainActivity.this).setTitle(loc.name).setItems(new String[]{"この日をクリア", "削除", "📍 ここにワープ"}, (dialog, which) -> {
                     if (which == 0) { db.locationDao().deleteDaily(loc.id, date); refreshData(); }
