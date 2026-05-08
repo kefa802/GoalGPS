@@ -49,7 +49,7 @@ public class GpsLoggingService extends Service {
         server = new MyWebServer(8080);
         try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) {}
 
-        // ✅ 15秒間隔（15000ms）に変更し、精度を「バランス」に落として節電
+        // 15秒間隔で省電力モード
         LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000)
                 .setMinUpdateIntervalMillis(10000)
                 .build();
@@ -64,40 +64,27 @@ public class GpsLoggingService extends Service {
 
     private void processLocation(Location location) {
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
-        
         Intent intent = new Intent("GPS_LOCATION_UPDATE");
-        intent.putExtra("lat", location.getLatitude());
-        intent.putExtra("lng", location.getLongitude());
+        intent.putExtra("lat", location.getLatitude()); intent.putExtra("lng", location.getLongitude());
         sendBroadcast(intent);
 
         List<LocationEntity> locs = db.locationDao().getAll();
         for (LocationEntity loc : locs) {
             float[] dist = new float[1];
             Location.distanceBetween(location.getLatitude(), location.getLongitude(), loc.latitude, loc.longitude, dist);
-
-            // 今日の箱がなければ作る
             DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
             if (data == null) {
-                data = new DailyAccumulator();
-                data.locationId = loc.id; data.date = today;
+                data = new DailyAccumulator(); data.locationId = loc.id; data.date = today;
                 db.locationDao().insertDaily(data);
                 data = db.locationDao().getDaily(loc.id, today);
             }
-
-            // ✅ 20m以内ならINに15秒、外ならOUTに15秒足すだけの超シンプルロジック
-            if (dist[0] <= 20.0f) {
-                data.totalInMs += 15000;
-            } else {
-                data.totalOutMs += 15000;
-            }
+            if (dist[0] <= 20.0f) { data.totalInMs += 15000; } else { data.totalOutMs += 15000; }
             db.locationDao().updateDaily(data);
         }
     }
 
-    @Override
-    public void onTaskRemoved(Intent rootIntent) {
-        Intent restart = new Intent(getApplicationContext(), this.getClass());
-        restart.setPackage(getPackageName());
+    @Override public void onTaskRemoved(Intent rootIntent) {
+        Intent restart = new Intent(getApplicationContext(), this.getClass()); restart.setPackage(getPackageName());
         PendingIntent pi = PendingIntent.getService(getApplicationContext(), 1, restart, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
         ((AlarmManager)getSystemService(Context.ALARM_SERVICE)).set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, pi);
         super.onTaskRemoved(rootIntent);
@@ -117,7 +104,7 @@ public class GpsLoggingService extends Service {
                 });
             }
             Response r = newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(results));
-            r.addHeader("Access-Control-Allow-Origin", "*");
+            r.addHeader("Access-Control-Allow-Origin", "*"); // CORS対応
             return r;
         }
     }
