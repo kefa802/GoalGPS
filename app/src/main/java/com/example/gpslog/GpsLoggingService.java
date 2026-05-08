@@ -38,6 +38,7 @@ public class GpsLoggingService extends Service {
     private LocationCallback locationCallback;
     private AppDatabase db;
     private MyWebServer server;
+    private long lastProcessTime = 0; // ✅ 追加：前回の処理時間
 
     @Override
     public void onCreate() {
@@ -49,6 +50,7 @@ public class GpsLoggingService extends Service {
         server = new MyWebServer(8080);
         try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) {}
 
+        // 15秒間隔の省電力GPSリクエスト
         LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000)
                 .setMinUpdateIntervalMillis(10000)
                 .build();
@@ -62,9 +64,16 @@ public class GpsLoggingService extends Service {
     }
 
     private void processLocation(Location location) {
+        long now = System.currentTimeMillis();
+        long elapsed = 15000;
+        if (lastProcessTime > 0) {
+            elapsed = now - lastProcessTime;
+            if (elapsed < 0) elapsed = 15000;
+        }
+        lastProcessTime = now;
+
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
         
-        // ✅ 復活：ワープ（モック）の読み取り
         android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
         boolean isMock = prefs.getBoolean("is_mock", false);
         double lat = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lat", 0)) : location.getLatitude();
@@ -73,13 +82,13 @@ public class GpsLoggingService extends Service {
         Intent intent = new Intent("GPS_LOCATION_UPDATE");
         intent.putExtra("lat", lat); 
         intent.putExtra("lng", lng); 
-        intent.putExtra("is_mock", isMock); // ワープ中かどうかも画面に送る
+        intent.putExtra("is_mock", isMock);
+        intent.putExtra("fix_time", now); // ✅ 追加：画面側に基準時間を送る
         sendBroadcast(intent);
 
         List<LocationEntity> locs = db.locationDao().getAll();
         for (LocationEntity loc : locs) {
             float[] dist = new float[1];
-            // ✅ 偽装した lat/lng を使って距離計算する
             Location.distanceBetween(lat, lng, loc.latitude, loc.longitude, dist);
             DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
             if (data == null) {
@@ -87,7 +96,8 @@ public class GpsLoggingService extends Service {
                 db.locationDao().insertDaily(data);
                 data = db.locationDao().getDaily(loc.id, today);
             }
-            if (dist[0] <= 20.0f) { data.totalInMs += 15000; } else { data.totalOutMs += 15000; }
+            // ✅ 正確な経過時間を足し算する
+            if (dist[0] <= 20.0f) { data.totalInMs += elapsed; } else { data.totalOutMs += elapsed; }
             db.locationDao().updateDaily(data);
         }
     }
