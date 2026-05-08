@@ -14,7 +14,6 @@ public interface LocationDao {
     @Update void update(LocationEntity location);
     @Delete void delete(LocationEntity location);
 
-    // ✅ 単純加算ロジック用の命令
     @Insert(onConflict = OnConflictStrategy.IGNORE) void insertDaily(DailyAccumulator item);
     @Query("SELECT * FROM daily_totals WHERE locationId = :locId AND date = :date LIMIT 1") DailyAccumulator getDaily(int locId, String date);
     @Update void updateDaily(DailyAccumulator item);
