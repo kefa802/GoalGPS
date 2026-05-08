@@ -2,6 +2,7 @@ package com.example.gpslog;
 import androidx.room.Dao;
 import androidx.room.Delete;
 import androidx.room.Insert;
+import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 import androidx.room.Update;
 import java.util.List;
@@ -12,17 +13,10 @@ public interface LocationDao {
     @Query("SELECT * FROM locations ORDER BY displayOrder ASC") List<LocationEntity> getAll();
     @Update void update(LocationEntity location);
     @Delete void delete(LocationEntity location);
-    @Insert void insertLog(LocationLogEntity log);
-    @Update void updateLog(LocationLogEntity log);
-    @Query("SELECT * FROM visit_logs ORDER BY entryTime DESC") List<LocationLogEntity> getAllLogs();
-    @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND entryTime <= :endTime ORDER BY entryTime DESC LIMIT 1")
-    LocationLogEntity getLatestLog(int locId, long endTime);
-    @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND exitTime = 0 LIMIT 1")
-    LocationLogEntity getActiveLog(int locId);
-    @Query("DELETE FROM visit_logs WHERE locationId = :locId")
-    void deleteLogsByLocationId(int locId);
-    @Query("SELECT * FROM visit_logs WHERE locationId = :locId AND entryTime >= :startOfDay AND entryTime <= :endOfDay ORDER BY entryTime ASC")
-    List<LocationLogEntity> getLogsForDay(int locId, long startOfDay, long endOfDay);
-    @Query("DELETE FROM visit_logs WHERE locationId = :locId AND entryTime >= :startTime AND entryTime <= :endTime")
-    void deleteLogsInRange(int locId, long startTime, long endTime);
+
+    // ✅ 単純加算ロジック用の命令
+    @Insert(onConflict = OnConflictStrategy.IGNORE) void insertDaily(DailyAccumulator item);
+    @Query("SELECT * FROM daily_totals WHERE locationId = :locId AND date = :date LIMIT 1") DailyAccumulator getDaily(int locId, String date);
+    @Update void updateDaily(DailyAccumulator item);
+    @Query("DELETE FROM daily_totals WHERE locationId = :locId AND date = :date") void deleteDaily(int locId, String date);
 }
