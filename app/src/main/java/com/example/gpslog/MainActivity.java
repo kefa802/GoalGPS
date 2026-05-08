@@ -41,10 +41,9 @@ public class MainActivity extends AppCompatActivity {
     private Calendar displayDate = Calendar.getInstance();
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LogAdapter adapter;
-    
     private String currentLocationStr = "取得中...";
-    private double currentLat = 0.0; // ✅ 追加：現在地の緯度
-    private double currentLng = 0.0; // ✅ 追加：現在地の経度
+    private double currentLat = 0.0;
+    private double currentLng = 0.0;
 
     private BroadcastReceiver locationReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -60,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvHeaderIn = findViewById(R.id.tvHeaderIn); tvHeaderOut = findViewById(R.id.tvHeaderOut); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); rvLogs = findViewById(R.id.rvDashboardLogs);
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.2.6"); // ✅ バージョン更新
+        tvVersion.setText("Ver: 1.2.7"); // バージョン更新
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { isHourUnit = (id == R.id.rbHour); refreshData(); });
@@ -89,7 +88,16 @@ public class MainActivity extends AppCompatActivity {
     }
     private void stopGpsService() { stopService(new Intent(this, GpsLoggingService.class)); updateUI(false); }
     private boolean isServiceRunning(Class<?> sc) { ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE); for (ActivityManager.RunningServiceInfo s : am.getRunningServices(Integer.MAX_VALUE)) { if (sc.getName().equals(s.service.getClassName())) return true; } return false; }
-    @Override protected void onResume() { super.onResume(); updateUI(isServiceRunning(GpsLoggingService.class)); registerReceiver(locationReceiver, new IntentFilter("GPS_LOCATION_UPDATE"), Context.RECEIVER_EXPORTED); }
+    
+    @Override protected void onResume() { 
+        super.onResume(); 
+        updateUI(isServiceRunning(GpsLoggingService.class)); 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(locationReceiver, new IntentFilter("GPS_LOCATION_UPDATE"), Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(locationReceiver, new IntentFilter("GPS_LOCATION_UPDATE"));
+        }
+    }
     @Override protected void onPause() { super.onPause(); unregisterReceiver(locationReceiver); }
 
     class LogAdapter extends RecyclerView.Adapter<LogViewHolder> {
@@ -108,12 +116,14 @@ public class MainActivity extends AppCompatActivity {
                 h.out.setText(String.format(Locale.JAPAN, "%d:%02d", (out/1000)/60, (out/1000)%60));
             }
 
-            // ✅ リアルタイムの距離判定による色塗りロジックを追加
+            // ✅ 修正済みの色塗りロジック（エラーにならない安全な書き方）
             boolean isOnline = switchRecord.isChecked();
-            boolean isToday = isToday();
+            Calendar todayCal = Calendar.getInstance();
+            boolean isTodayDate = (todayCal.get(Calendar.YEAR) == displayDate.get(Calendar.YEAR) && 
+                                   todayCal.get(Calendar.DAY_OF_YEAR) == displayDate.get(Calendar.DAY_OF_YEAR));
             boolean isCurrentlyIn = false;
 
-            if (isOnline && isToday && currentLat != 0.0 && currentLng != 0.0) {
+            if (isOnline && isTodayDate && currentLat != 0.0 && currentLng != 0.0) {
                 float[] dist = new float[1];
                 android.location.Location.distanceBetween(currentLat, currentLng, loc.latitude, loc.longitude, dist);
                 if (dist[0] <= 20.0f) {
@@ -121,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            if (isOnline && isToday) {
+            if (isOnline && isTodayDate) {
                 h.in.setBackgroundColor(isCurrentlyIn ? Color.parseColor("#C8E6C9") : Color.TRANSPARENT);
                 h.out.setBackgroundColor(!isCurrentlyIn ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
             } else {
