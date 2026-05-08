@@ -83,6 +83,7 @@ public class MapActivity extends AppCompatActivity {
             Marker m = new Marker(mapView);
             m.setPosition(new GeoPoint(loc.latitude, loc.longitude));
             m.setTitle(loc.name);
+            // 既存のアイコン設定をそのまま使用
             m.setIcon(getResources().getDrawable(android.R.drawable.btn_star_big_on));
             mapView.getOverlays().add(m);
         }
