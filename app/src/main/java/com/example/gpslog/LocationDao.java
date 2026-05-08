@@ -1,4 +1,5 @@
 package com.example.gpslog;
+
 import androidx.room.Dao;
 import androidx.room.Delete;
 import androidx.room.Insert;
@@ -14,8 +15,14 @@ public interface LocationDao {
     @Update void update(LocationEntity location);
     @Delete void delete(LocationEntity location);
 
+    // ✅ ビルドエラー解消用：古いログ形式の操作
+    @Query("SELECT * FROM visit_logs ORDER BY entryTime DESC") List<LocationLogEntity> getAllLogs();
+    @Query("DELETE FROM visit_logs WHERE locationId = :locId") void deleteLogsByLocationId(int locId);
+
+    // ✅ 新しい積算ロジック用の操作
     @Insert(onConflict = OnConflictStrategy.IGNORE) void insertDaily(DailyAccumulator item);
     @Query("SELECT * FROM daily_totals WHERE locationId = :locId AND date = :date LIMIT 1") DailyAccumulator getDaily(int locId, String date);
     @Update void updateDaily(DailyAccumulator item);
     @Query("DELETE FROM daily_totals WHERE locationId = :locId AND date = :date") void deleteDaily(int locId, String date);
+    @Query("DELETE FROM daily_totals WHERE locationId = :locId") void deleteAllDailyForLocation(int locId);
 }
