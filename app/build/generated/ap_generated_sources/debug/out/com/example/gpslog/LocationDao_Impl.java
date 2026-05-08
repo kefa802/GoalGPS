@@ -23,17 +23,19 @@ public final class LocationDao_Impl implements LocationDao {
 
   private final EntityInsertionAdapter<LocationEntity> __insertionAdapterOfLocationEntity;
 
-  private final EntityInsertionAdapter<LocationLogEntity> __insertionAdapterOfLocationLogEntity;
+  private final EntityInsertionAdapter<DailyAccumulator> __insertionAdapterOfDailyAccumulator;
 
   private final EntityDeletionOrUpdateAdapter<LocationEntity> __deletionAdapterOfLocationEntity;
 
   private final EntityDeletionOrUpdateAdapter<LocationEntity> __updateAdapterOfLocationEntity;
 
-  private final EntityDeletionOrUpdateAdapter<LocationLogEntity> __updateAdapterOfLocationLogEntity;
+  private final EntityDeletionOrUpdateAdapter<DailyAccumulator> __updateAdapterOfDailyAccumulator;
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteLogsByLocationId;
 
-  private final SharedSQLiteStatement __preparedStmtOfDeleteLogsInRange;
+  private final SharedSQLiteStatement __preparedStmtOfDeleteDaily;
+
+  private final SharedSQLiteStatement __preparedStmtOfDeleteAllDailyForLocation;
 
   public LocationDao_Impl(RoomDatabase __db) {
     this.__db = __db;
@@ -56,24 +58,22 @@ public final class LocationDao_Impl implements LocationDao {
         stmt.bindLong(5, value.displayOrder);
       }
     };
-    this.__insertionAdapterOfLocationLogEntity = new EntityInsertionAdapter<LocationLogEntity>(__db) {
+    this.__insertionAdapterOfDailyAccumulator = new EntityInsertionAdapter<DailyAccumulator>(__db) {
       @Override
       public String createQuery() {
-        return "INSERT OR ABORT INTO `visit_logs` (`logId`,`locationId`,`locationName`,`entryTime`,`exitTime`,`stayDuration`) VALUES (nullif(?, 0),?,?,?,?,?)";
+        return "INSERT OR IGNORE INTO `daily_totals` (`locationId`,`date`,`totalInMs`,`totalOutMs`) VALUES (?,?,?,?)";
       }
 
       @Override
-      public void bind(SupportSQLiteStatement stmt, LocationLogEntity value) {
-        stmt.bindLong(1, value.logId);
-        stmt.bindLong(2, value.locationId);
-        if (value.locationName == null) {
-          stmt.bindNull(3);
+      public void bind(SupportSQLiteStatement stmt, DailyAccumulator value) {
+        stmt.bindLong(1, value.locationId);
+        if (value.date == null) {
+          stmt.bindNull(2);
         } else {
-          stmt.bindString(3, value.locationName);
+          stmt.bindString(2, value.date);
         }
-        stmt.bindLong(4, value.entryTime);
-        stmt.bindLong(5, value.exitTime);
-        stmt.bindLong(6, value.stayDuration);
+        stmt.bindLong(3, value.totalInMs);
+        stmt.bindLong(4, value.totalOutMs);
       }
     };
     this.__deletionAdapterOfLocationEntity = new EntityDeletionOrUpdateAdapter<LocationEntity>(__db) {
@@ -107,25 +107,28 @@ public final class LocationDao_Impl implements LocationDao {
         stmt.bindLong(6, value.id);
       }
     };
-    this.__updateAdapterOfLocationLogEntity = new EntityDeletionOrUpdateAdapter<LocationLogEntity>(__db) {
+    this.__updateAdapterOfDailyAccumulator = new EntityDeletionOrUpdateAdapter<DailyAccumulator>(__db) {
       @Override
       public String createQuery() {
-        return "UPDATE OR ABORT `visit_logs` SET `logId` = ?,`locationId` = ?,`locationName` = ?,`entryTime` = ?,`exitTime` = ?,`stayDuration` = ? WHERE `logId` = ?";
+        return "UPDATE OR ABORT `daily_totals` SET `locationId` = ?,`date` = ?,`totalInMs` = ?,`totalOutMs` = ? WHERE `locationId` = ? AND `date` = ?";
       }
 
       @Override
-      public void bind(SupportSQLiteStatement stmt, LocationLogEntity value) {
-        stmt.bindLong(1, value.logId);
-        stmt.bindLong(2, value.locationId);
-        if (value.locationName == null) {
-          stmt.bindNull(3);
+      public void bind(SupportSQLiteStatement stmt, DailyAccumulator value) {
+        stmt.bindLong(1, value.locationId);
+        if (value.date == null) {
+          stmt.bindNull(2);
         } else {
-          stmt.bindString(3, value.locationName);
+          stmt.bindString(2, value.date);
         }
-        stmt.bindLong(4, value.entryTime);
-        stmt.bindLong(5, value.exitTime);
-        stmt.bindLong(6, value.stayDuration);
-        stmt.bindLong(7, value.logId);
+        stmt.bindLong(3, value.totalInMs);
+        stmt.bindLong(4, value.totalOutMs);
+        stmt.bindLong(5, value.locationId);
+        if (value.date == null) {
+          stmt.bindNull(6);
+        } else {
+          stmt.bindString(6, value.date);
+        }
       }
     };
     this.__preparedStmtOfDeleteLogsByLocationId = new SharedSQLiteStatement(__db) {
@@ -135,10 +138,17 @@ public final class LocationDao_Impl implements LocationDao {
         return _query;
       }
     };
-    this.__preparedStmtOfDeleteLogsInRange = new SharedSQLiteStatement(__db) {
+    this.__preparedStmtOfDeleteDaily = new SharedSQLiteStatement(__db) {
       @Override
       public String createQuery() {
-        final String _query = "DELETE FROM visit_logs WHERE locationId = ? AND entryTime >= ? AND entryTime <= ?";
+        final String _query = "DELETE FROM daily_totals WHERE locationId = ? AND date = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfDeleteAllDailyForLocation = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM daily_totals WHERE locationId = ?";
         return _query;
       }
     };
@@ -157,11 +167,11 @@ public final class LocationDao_Impl implements LocationDao {
   }
 
   @Override
-  public void insertLog(final LocationLogEntity log) {
+  public void insertDaily(final DailyAccumulator item) {
     __db.assertNotSuspendingTransaction();
     __db.beginTransaction();
     try {
-      __insertionAdapterOfLocationLogEntity.insert(log);
+      __insertionAdapterOfDailyAccumulator.insert(item);
       __db.setTransactionSuccessful();
     } finally {
       __db.endTransaction();
@@ -193,11 +203,11 @@ public final class LocationDao_Impl implements LocationDao {
   }
 
   @Override
-  public void updateLog(final LocationLogEntity log) {
+  public void updateDaily(final DailyAccumulator item) {
     __db.assertNotSuspendingTransaction();
     __db.beginTransaction();
     try {
-      __updateAdapterOfLocationLogEntity.handle(log);
+      __updateAdapterOfDailyAccumulator.handle(item);
       __db.setTransactionSuccessful();
     } finally {
       __db.endTransaction();
@@ -221,22 +231,40 @@ public final class LocationDao_Impl implements LocationDao {
   }
 
   @Override
-  public void deleteLogsInRange(final int locId, final long startTime, final long endTime) {
+  public void deleteDaily(final int locId, final String date) {
     __db.assertNotSuspendingTransaction();
-    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteLogsInRange.acquire();
+    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteDaily.acquire();
     int _argIndex = 1;
     _stmt.bindLong(_argIndex, locId);
     _argIndex = 2;
-    _stmt.bindLong(_argIndex, startTime);
-    _argIndex = 3;
-    _stmt.bindLong(_argIndex, endTime);
+    if (date == null) {
+      _stmt.bindNull(_argIndex);
+    } else {
+      _stmt.bindString(_argIndex, date);
+    }
     __db.beginTransaction();
     try {
       _stmt.executeUpdateDelete();
       __db.setTransactionSuccessful();
     } finally {
       __db.endTransaction();
-      __preparedStmtOfDeleteLogsInRange.release(_stmt);
+      __preparedStmtOfDeleteDaily.release(_stmt);
+    }
+  }
+
+  @Override
+  public void deleteAllDailyForLocation(final int locId) {
+    __db.assertNotSuspendingTransaction();
+    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteAllDailyForLocation.acquire();
+    int _argIndex = 1;
+    _stmt.bindLong(_argIndex, locId);
+    __db.beginTransaction();
+    try {
+      _stmt.executeUpdateDelete();
+      __db.setTransactionSuccessful();
+    } finally {
+      __db.endTransaction();
+      __preparedStmtOfDeleteAllDailyForLocation.release(_stmt);
     }
   }
 
@@ -311,118 +339,37 @@ public final class LocationDao_Impl implements LocationDao {
   }
 
   @Override
-  public LocationLogEntity getLatestLog(final int locId, final long endTime) {
-    final String _sql = "SELECT * FROM visit_logs WHERE locationId = ? AND entryTime <= ? ORDER BY entryTime DESC LIMIT 1";
+  public DailyAccumulator getDaily(final int locId, final String date) {
+    final String _sql = "SELECT * FROM daily_totals WHERE locationId = ? AND date = ? LIMIT 1";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 2);
     int _argIndex = 1;
     _statement.bindLong(_argIndex, locId);
     _argIndex = 2;
-    _statement.bindLong(_argIndex, endTime);
+    if (date == null) {
+      _statement.bindNull(_argIndex);
+    } else {
+      _statement.bindString(_argIndex, date);
+    }
     __db.assertNotSuspendingTransaction();
     final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
     try {
-      final int _cursorIndexOfLogId = CursorUtil.getColumnIndexOrThrow(_cursor, "logId");
       final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
-      final int _cursorIndexOfLocationName = CursorUtil.getColumnIndexOrThrow(_cursor, "locationName");
-      final int _cursorIndexOfEntryTime = CursorUtil.getColumnIndexOrThrow(_cursor, "entryTime");
-      final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
-      final int _cursorIndexOfStayDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "stayDuration");
-      final LocationLogEntity _result;
+      final int _cursorIndexOfDate = CursorUtil.getColumnIndexOrThrow(_cursor, "date");
+      final int _cursorIndexOfTotalInMs = CursorUtil.getColumnIndexOrThrow(_cursor, "totalInMs");
+      final int _cursorIndexOfTotalOutMs = CursorUtil.getColumnIndexOrThrow(_cursor, "totalOutMs");
+      final DailyAccumulator _result;
       if(_cursor.moveToFirst()) {
-        _result = new LocationLogEntity();
-        _result.logId = _cursor.getInt(_cursorIndexOfLogId);
+        _result = new DailyAccumulator();
         _result.locationId = _cursor.getInt(_cursorIndexOfLocationId);
-        if (_cursor.isNull(_cursorIndexOfLocationName)) {
-          _result.locationName = null;
+        if (_cursor.isNull(_cursorIndexOfDate)) {
+          _result.date = null;
         } else {
-          _result.locationName = _cursor.getString(_cursorIndexOfLocationName);
+          _result.date = _cursor.getString(_cursorIndexOfDate);
         }
-        _result.entryTime = _cursor.getLong(_cursorIndexOfEntryTime);
-        _result.exitTime = _cursor.getLong(_cursorIndexOfExitTime);
-        _result.stayDuration = _cursor.getLong(_cursorIndexOfStayDuration);
+        _result.totalInMs = _cursor.getLong(_cursorIndexOfTotalInMs);
+        _result.totalOutMs = _cursor.getLong(_cursorIndexOfTotalOutMs);
       } else {
         _result = null;
-      }
-      return _result;
-    } finally {
-      _cursor.close();
-      _statement.release();
-    }
-  }
-
-  @Override
-  public LocationLogEntity getActiveLog(final int locId) {
-    final String _sql = "SELECT * FROM visit_logs WHERE locationId = ? AND exitTime = 0 LIMIT 1";
-    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
-    int _argIndex = 1;
-    _statement.bindLong(_argIndex, locId);
-    __db.assertNotSuspendingTransaction();
-    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
-    try {
-      final int _cursorIndexOfLogId = CursorUtil.getColumnIndexOrThrow(_cursor, "logId");
-      final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
-      final int _cursorIndexOfLocationName = CursorUtil.getColumnIndexOrThrow(_cursor, "locationName");
-      final int _cursorIndexOfEntryTime = CursorUtil.getColumnIndexOrThrow(_cursor, "entryTime");
-      final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
-      final int _cursorIndexOfStayDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "stayDuration");
-      final LocationLogEntity _result;
-      if(_cursor.moveToFirst()) {
-        _result = new LocationLogEntity();
-        _result.logId = _cursor.getInt(_cursorIndexOfLogId);
-        _result.locationId = _cursor.getInt(_cursorIndexOfLocationId);
-        if (_cursor.isNull(_cursorIndexOfLocationName)) {
-          _result.locationName = null;
-        } else {
-          _result.locationName = _cursor.getString(_cursorIndexOfLocationName);
-        }
-        _result.entryTime = _cursor.getLong(_cursorIndexOfEntryTime);
-        _result.exitTime = _cursor.getLong(_cursorIndexOfExitTime);
-        _result.stayDuration = _cursor.getLong(_cursorIndexOfStayDuration);
-      } else {
-        _result = null;
-      }
-      return _result;
-    } finally {
-      _cursor.close();
-      _statement.release();
-    }
-  }
-
-  @Override
-  public List<LocationLogEntity> getLogsForDay(final int locId, final long startOfDay,
-      final long endOfDay) {
-    final String _sql = "SELECT * FROM visit_logs WHERE locationId = ? AND entryTime >= ? AND entryTime <= ? ORDER BY entryTime ASC";
-    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 3);
-    int _argIndex = 1;
-    _statement.bindLong(_argIndex, locId);
-    _argIndex = 2;
-    _statement.bindLong(_argIndex, startOfDay);
-    _argIndex = 3;
-    _statement.bindLong(_argIndex, endOfDay);
-    __db.assertNotSuspendingTransaction();
-    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
-    try {
-      final int _cursorIndexOfLogId = CursorUtil.getColumnIndexOrThrow(_cursor, "logId");
-      final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
-      final int _cursorIndexOfLocationName = CursorUtil.getColumnIndexOrThrow(_cursor, "locationName");
-      final int _cursorIndexOfEntryTime = CursorUtil.getColumnIndexOrThrow(_cursor, "entryTime");
-      final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
-      final int _cursorIndexOfStayDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "stayDuration");
-      final List<LocationLogEntity> _result = new ArrayList<LocationLogEntity>(_cursor.getCount());
-      while(_cursor.moveToNext()) {
-        final LocationLogEntity _item;
-        _item = new LocationLogEntity();
-        _item.logId = _cursor.getInt(_cursorIndexOfLogId);
-        _item.locationId = _cursor.getInt(_cursorIndexOfLocationId);
-        if (_cursor.isNull(_cursorIndexOfLocationName)) {
-          _item.locationName = null;
-        } else {
-          _item.locationName = _cursor.getString(_cursorIndexOfLocationName);
-        }
-        _item.entryTime = _cursor.getLong(_cursorIndexOfEntryTime);
-        _item.exitTime = _cursor.getLong(_cursorIndexOfExitTime);
-        _item.stayDuration = _cursor.getLong(_cursorIndexOfStayDuration);
-        _result.add(_item);
       }
       return _result;
     } finally {
