@@ -44,11 +44,13 @@ public class MainActivity extends AppCompatActivity {
     private String currentLocationStr = "取得中...";
     private double currentLat = 0.0;
     private double currentLng = 0.0;
+    private boolean isCurrentlyMocking = false;
 
     private BroadcastReceiver locationReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             currentLat = intent.getDoubleExtra("lat", 0);
             currentLng = intent.getDoubleExtra("lng", 0);
+            isCurrentlyMocking = intent.getBooleanExtra("is_mock", false); // ✅ 復活
             currentLocationStr = String.format(Locale.US, "%.5f, %.5f", currentLat, currentLng);
             updateUI(isServiceRunning(GpsLoggingService.class));
         }
@@ -59,12 +61,22 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvHeaderIn = findViewById(R.id.tvHeaderIn); tvHeaderOut = findViewById(R.id.tvHeaderOut); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); rvLogs = findViewById(R.id.rvDashboardLogs);
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.2.7"); // バージョン更新
+        tvVersion.setText("Ver: 1.2.8"); // ✅ バージョン更新
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { isHourUnit = (id == R.id.rbHour); refreshData(); });
         switchRecord.setOnClickListener(v -> { if (switchRecord.isChecked()) { startGpsService(); } else { stopGpsService(); } });
         findViewById(R.id.btnRegister).setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
+        
+        // ワープ解除のタップイベント
+        tvStatusBanner.setOnClickListener(v -> {
+            android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
+            if (prefs.getBoolean("is_mock", false)) {
+                prefs.edit().putBoolean("is_mock", false).apply();
+                Toast.makeText(this, "ワープ解除しました", Toast.LENGTH_SHORT).show();
+            }
+        });
+
         refreshData();
         new Handler().postDelayed(new Runnable() { @Override public void run() { refreshData(); new Handler().postDelayed(this, 1000); } }, 1000);
     }
@@ -78,8 +90,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateUI(boolean run) {
         switchRecord.setChecked(run);
-        if (run) { tvStatusBanner.setText("オンライン：自動記録中\n[現在地] " + currentLocationStr); tvStatusBanner.setBackgroundColor(Color.parseColor("#4CAF50")); }
-        else { tvStatusBanner.setText("オフライン\n[現在地] 記録停止中"); tvStatusBanner.setBackgroundColor(Color.parseColor("#9E9E9E")); }
+        if (run) { 
+            String mockText = isCurrentlyMocking ? " 【ワープ中】" : "";
+            tvStatusBanner.setText("オンライン：自動記録中" + mockText + "\n[現在地] " + currentLocationStr); 
+            tvStatusBanner.setBackgroundColor(Color.parseColor("#4CAF50")); 
+        } else { 
+            tvStatusBanner.setText("オフライン\n[現在地] 記録停止中"); 
+            tvStatusBanner.setBackgroundColor(Color.parseColor("#9E9E9E")); 
+        }
     }
 
     private void startGpsService() {
@@ -116,7 +134,6 @@ public class MainActivity extends AppCompatActivity {
                 h.out.setText(String.format(Locale.JAPAN, "%d:%02d", (out/1000)/60, (out/1000)%60));
             }
 
-            // ✅ 修正済みの色塗りロジック（エラーにならない安全な書き方）
             boolean isOnline = switchRecord.isChecked();
             Calendar todayCal = Calendar.getInstance();
             boolean isTodayDate = (todayCal.get(Calendar.YEAR) == displayDate.get(Calendar.YEAR) && 
@@ -140,19 +157,51 @@ public class MainActivity extends AppCompatActivity {
             }
             
             h.itemView.setOnLongClickListener(v -> {
-                new AlertDialog.Builder(MainActivity.this).setTitle(loc.name).setItems(new String[]{"この日をクリア", "削除", "📍 ここにワープ"}, (dialog, which) -> {
-                    if (which == 0) { db.locationDao().deleteDaily(loc.id, date); refreshData(); }
-                    else if (which == 1) { 
-                        db.locationDao().deleteLogsByLocationId(loc.id); 
-                        db.locationDao().deleteAllDailyForLocation(loc.id);
-                        db.locationDao().delete(loc); 
-                        refreshData(); 
+                // ✅ 復活：すべてのメニュー項目
+                CharSequence[] items = {"この日をクリア", "上へ移動", "下へ移動", "削除", "📍 ここにワープ"};
+                new AlertDialog.Builder(MainActivity.this).setTitle(loc.name).setItems(items, (dialog, which) -> {
+                    switch (which) {
+                        case 0: 
+                            db.locationDao().deleteDaily(loc.id, date); 
+                            refreshData(); 
+                            break;
+                        case 1: 
+                            if (pos > 0) swap(pos, pos - 1); 
+                            break;
+                        case 2: 
+                            if (pos < masterLocations.size() - 1) swap(pos, pos + 1); 
+                            break;
+                        case 3: 
+                            db.locationDao().deleteLogsByLocationId(loc.id); 
+                            db.locationDao().deleteAllDailyForLocation(loc.id);
+                            db.locationDao().delete(loc); 
+                            refreshData(); 
+                            break;
+                        case 4: 
+                            getSharedPreferences("gps_mock", Context.MODE_PRIVATE).edit()
+                                .putBoolean("is_mock", true)
+                                .putLong("mock_lat", Double.doubleToRawLongBits(loc.latitude))
+                                .putLong("mock_lng", Double.doubleToRawLongBits(loc.longitude))
+                                .apply(); 
+                            Toast.makeText(MainActivity.this, "ワープしました！\n（上の緑バナーをタップで解除）", Toast.LENGTH_SHORT).show();
+                            break;
                     }
-                    else { getSharedPreferences("gps_mock", 0).edit().putBoolean("is_mock", true).putLong("mock_lat", Double.doubleToRawLongBits(loc.latitude)).putLong("mock_lng", Double.doubleToRawLongBits(loc.longitude)).apply(); }
                 }).show(); return true;
             });
         }
         @Override public int getItemCount() { return masterLocations.size(); }
     }
+    
+    // ✅ 復活：入れ替え処理メソッド
+    private void swap(int f, int t) { 
+        LocationEntity from = masterLocations.get(f), to = masterLocations.get(t); 
+        int temp = from.displayOrder; 
+        from.displayOrder = to.displayOrder; 
+        to.displayOrder = temp; 
+        db.locationDao().update(from); 
+        db.locationDao().update(to); 
+        refreshData(); 
+    }
+    
     static class LogViewHolder extends RecyclerView.ViewHolder { TextView name, location, in, out; LogViewHolder(View v) { super(v); name = v.findViewById(R.id.tvLogName); location = v.findViewById(R.id.tvLogLocation); in = v.findViewById(R.id.tvLogInTime); out = v.findViewById(R.id.tvLogOutTime); } }
 }
