@@ -49,7 +49,7 @@ public class GpsLoggingService extends Service {
         server = new MyWebServer(8080);
         try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) {}
 
-        // 15秒間隔で省電力モード
+        // 15秒間隔で省電力設定
         LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000)
                 .setMinUpdateIntervalMillis(10000)
                 .build();
@@ -104,7 +104,7 @@ public class GpsLoggingService extends Service {
                 });
             }
             Response r = newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(results));
-            r.addHeader("Access-Control-Allow-Origin", "*"); // CORS対応
+            r.addHeader("Access-Control-Allow-Origin", "*");
             return r;
         }
     }
