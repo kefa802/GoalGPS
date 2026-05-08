@@ -35,6 +35,10 @@ public class MapActivity extends AppCompatActivity {
         setContentView(R.layout.activity_map);
 
         mapView = findViewById(R.id.map);
+        
+        // ✅ 追加：指2本でのピンチイン・ピンチアウト（ズーム）を有効化
+        mapView.setMultiTouchControls(true); 
+
         etName = findViewById(R.id.etLocationName);
         Button btnJump = findViewById(R.id.btnJumpToCurrent);
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -51,7 +55,6 @@ public class MapActivity extends AppCompatActivity {
         mapView.getOverlays().add(currentMarker);
 
         btnJump.setOnClickListener(v -> {
-            // ✅ 修正：Online判定
             if (!isServiceRunning(GpsLoggingService.class)) {
                 Toast.makeText(this, "現在地を表示するには、OnlineをONにしてください", Toast.LENGTH_LONG).show();
                 return;
@@ -92,7 +95,6 @@ public class MapActivity extends AppCompatActivity {
             e.name = etName.getText().toString().isEmpty() ? "無題" : etName.getText().toString();
             e.latitude = currentMarker.getPosition().getLatitude();
             e.longitude = currentMarker.getPosition().getLongitude();
-            // ✅ 保存時に現在の最大順序+1をセット
             e.displayOrder = db.locationDao().getAll().size();
             db.locationDao().insert(e);
             Toast.makeText(this, "保存しました", Toast.LENGTH_SHORT).show();
