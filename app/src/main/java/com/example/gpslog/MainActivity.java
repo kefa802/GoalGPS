@@ -55,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvHeaderIn = findViewById(R.id.tvHeaderIn); tvHeaderOut = findViewById(R.id.tvHeaderOut); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); rvLogs = findViewById(R.id.rvDashboardLogs);
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.2.4");
+        tvVersion.setText("Ver: 1.2.5");
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { isHourUnit = (id == R.id.rbHour); refreshData(); });
@@ -102,7 +102,12 @@ public class MainActivity extends AppCompatActivity {
             h.itemView.setOnLongClickListener(v -> {
                 new AlertDialog.Builder(MainActivity.this).setTitle(loc.name).setItems(new String[]{"この日をクリア", "削除", "📍 ここにワープ"}, (dialog, which) -> {
                     if (which == 0) { db.locationDao().deleteDaily(loc.id, date); refreshData(); }
-                    else if (which == 1) { db.locationDao().deleteLogsByLocationId(loc.id); db.locationDao().delete(loc); refreshData(); }
+                    else if (which == 1) { 
+                        db.locationDao().deleteLogsByLocationId(loc.id); 
+                        db.locationDao().deleteAllDailyForLocation(loc.id);
+                        db.locationDao().delete(loc); 
+                        refreshData(); 
+                    }
                     else { getSharedPreferences("gps_mock", 0).edit().putBoolean("is_mock", true).putLong("mock_lat", Double.doubleToRawLongBits(loc.latitude)).putLong("mock_lng", Double.doubleToRawLongBits(loc.longitude)).apply(); }
                 }).show(); return true;
             });
