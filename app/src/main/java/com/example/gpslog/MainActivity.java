@@ -80,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
         rvHistoryLogs = findViewById(R.id.rvHistoryLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.3.1"); // ✅ バージョン更新
+        tvVersion.setText("Ver: 1.3.2"); // ✅ バージョン更新
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         
@@ -101,7 +101,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // ✅ 修正：アプリ起動時に日付をセットしてからデータを読み込む
+        // ✅ 追加：一括クリアボタンの処理
+        findViewById(R.id.btnClearHistory).setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                .setTitle("履歴の一括クリア")
+                .setMessage("表示されている日の履歴をすべて削除しますか？\n（※上部の積算時間には影響しません）")
+                .setPositiveButton("削除", (dialog, which) -> {
+                    String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayDate.getTime());
+                    db.locationDao().deleteAllHistoryForDate(dateStr);
+                    refreshData();
+                    Toast.makeText(this, "履歴を一括クリアしました", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+        });
+
         updateDateDisplay();
         updateHandler.postDelayed(updateRunnable, 1000);
     }
@@ -111,7 +125,6 @@ public class MainActivity extends AppCompatActivity {
         updateDateDisplay(); 
     }
     
-    // ✅ 復活：日付テキストを更新するメソッド
     private void updateDateDisplay() {
         tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(displayDate.getTime()));
         refreshData();
@@ -120,12 +133,10 @@ public class MainActivity extends AppCompatActivity {
     private void refreshData() {
         String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayDate.getTime());
         
-        // メインの積算リスト更新
         List<LocationEntity> freshData = db.locationDao().getAll(); masterLocations.clear();
         if (freshData != null && !freshData.isEmpty()) { masterLocations.addAll(freshData); tvEmpty.setVisibility(View.GONE); rvLogs.setVisibility(View.VISIBLE); } else { tvEmpty.setVisibility(View.VISIBLE); rvLogs.setVisibility(View.GONE); }
         adapter.notifyDataSetChanged();
 
-        // 履歴リストの更新
         List<VisitHistory> hLogs = db.locationDao().getHistoryForDate(dateStr);
         historyLogs.clear();
         if(hLogs != null) historyLogs.addAll(hLogs);
@@ -216,11 +227,29 @@ public class MainActivity extends AppCompatActivity {
         @NonNull @Override public HistoryViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) { return new HistoryViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_history, p, false)); }
         @Override public void onBindViewHolder(@NonNull HistoryViewHolder h, int pos) {
             VisitHistory history = historyLogs.get(pos);
-            h.time.setText(new SimpleDateFormat("HH:mm:ss", Locale.JAPAN).format(new Date(history.timestamp)));
-            h.action.setText(history.isEntry ? "IN" : "OUT");
+            String timeStr = new SimpleDateFormat("HH:mm:ss", Locale.JAPAN).format(new Date(history.timestamp));
+            h.time.setText(timeStr);
+            String actionStr = history.isEntry ? "IN" : "OUT";
+            h.action.setText(actionStr);
             h.action.setTextColor(history.isEntry ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336"));
             LocationEntity loc = db.locationDao().getLocationById(history.locationId);
-            h.name.setText(loc != null ? loc.name : "不明");
+            String locName = loc != null ? loc.name : "不明";
+            h.name.setText(locName);
+
+            // ✅ 追加：履歴を長押しで個別クリア
+            h.itemView.setOnLongClickListener(v -> {
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("履歴の個別クリア")
+                    .setMessage(timeStr + " の [" + locName + " : " + actionStr + "] を削除しますか？")
+                    .setPositiveButton("削除", (dialog, which) -> {
+                        db.locationDao().deleteHistoryById(history.id);
+                        refreshData();
+                        Toast.makeText(MainActivity.this, "削除しました", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton("キャンセル", null)
+                    .show();
+                return true;
+            });
         }
         @Override public int getItemCount() { return historyLogs.size(); }
     }
