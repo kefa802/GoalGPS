@@ -116,22 +116,30 @@ public class GpsLoggingService extends Service {
         super.onTaskRemoved(rootIntent);
     }
 
+    // ✅ 復活：JSONライブラリが正しく読み取れる専用の箱
+    private static class SimpleLog {
+        String name; String in_hour; String out_hour;
+        SimpleLog(String n, String i, String o) { this.name = n; this.in_hour = i; this.out_hour = o; }
+    }
+
     private class MyWebServer extends NanoHTTPD {
         public MyWebServer(int port) { super(port); }
         @Override public Response serve(IHTTPSession session) {
-            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
-            List<Object> results = new ArrayList<>();
-            for (LocationEntity loc : db.locationDao().getAll()) {
-                DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
-                results.add(new Object(){
-                    String name = loc.name;
-                    String in_hour = (data != null) ? String.format(Locale.US, "%.2f", (double)data.totalInMs/3600000.0) : "0.00";
-                    String out_hour = (data != null) ? String.format(Locale.US, "%.2f", (double)data.totalOutMs/3600000.0) : "0.00";
-                });
+            // ✅ /logs へのアクセス時のみJSONを返すように修正
+            if ("/logs".equals(session.getUri())) {
+                String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+                List<SimpleLog> results = new ArrayList<>();
+                for (LocationEntity loc : db.locationDao().getAll()) {
+                    DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
+                    String inH = (data != null) ? String.format(Locale.US, "%.2f", (double)data.totalInMs / 3600000.0) : "0.00";
+                    String outH = (data != null) ? String.format(Locale.US, "%.2f", (double)data.totalOutMs / 3600000.0) : "0.00";
+                    results.add(new SimpleLog(loc.name, inH, outH));
+                }
+                Response r = newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(results));
+                r.addHeader("Access-Control-Allow-Origin", "*");
+                return r;
             }
-            Response r = newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(results));
-            r.addHeader("Access-Control-Allow-Origin", "*");
-            return r;
+            return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Not Found");
         }
     }
 
