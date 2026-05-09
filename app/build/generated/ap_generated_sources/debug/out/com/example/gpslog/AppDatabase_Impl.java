@@ -34,14 +34,15 @@ public final class AppDatabase_Impl extends AppDatabase {
 
   @Override
   protected SupportSQLiteOpenHelper createOpenHelper(DatabaseConfiguration configuration) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(configuration, new RoomOpenHelper.Delegate(2) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(configuration, new RoomOpenHelper.Delegate(3) {
       @Override
       public void createAllTables(SupportSQLiteDatabase _db) {
         _db.execSQL("CREATE TABLE IF NOT EXISTS `locations` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `displayOrder` INTEGER NOT NULL)");
         _db.execSQL("CREATE TABLE IF NOT EXISTS `visit_logs` (`logId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `locationId` INTEGER NOT NULL, `locationName` TEXT, `entryTime` INTEGER NOT NULL, `exitTime` INTEGER NOT NULL, `stayDuration` INTEGER NOT NULL)");
         _db.execSQL("CREATE TABLE IF NOT EXISTS `daily_totals` (`locationId` INTEGER NOT NULL, `date` TEXT NOT NULL, `totalInMs` INTEGER NOT NULL, `totalOutMs` INTEGER NOT NULL, PRIMARY KEY(`locationId`, `date`))");
+        _db.execSQL("CREATE TABLE IF NOT EXISTS `visit_history` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `locationId` INTEGER NOT NULL, `date` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `isEntry` INTEGER NOT NULL)");
         _db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        _db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9d901de28b06dee7e46eba272b4288f3')");
+        _db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd319938dbff1b6d05716cd3862a69804')");
       }
 
       @Override
@@ -49,6 +50,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         _db.execSQL("DROP TABLE IF EXISTS `locations`");
         _db.execSQL("DROP TABLE IF EXISTS `visit_logs`");
         _db.execSQL("DROP TABLE IF EXISTS `daily_totals`");
+        _db.execSQL("DROP TABLE IF EXISTS `visit_history`");
         if (mCallbacks != null) {
           for (int _i = 0, _size = mCallbacks.size(); _i < _size; _i++) {
             mCallbacks.get(_i).onDestructiveMigration(_db);
@@ -132,9 +134,24 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoDailyTotals + "\n"
                   + " Found:\n" + _existingDailyTotals);
         }
+        final HashMap<String, TableInfo.Column> _columnsVisitHistory = new HashMap<String, TableInfo.Column>(5);
+        _columnsVisitHistory.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsVisitHistory.put("locationId", new TableInfo.Column("locationId", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsVisitHistory.put("date", new TableInfo.Column("date", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsVisitHistory.put("timestamp", new TableInfo.Column("timestamp", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsVisitHistory.put("isEntry", new TableInfo.Column("isEntry", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        final HashSet<TableInfo.ForeignKey> _foreignKeysVisitHistory = new HashSet<TableInfo.ForeignKey>(0);
+        final HashSet<TableInfo.Index> _indicesVisitHistory = new HashSet<TableInfo.Index>(0);
+        final TableInfo _infoVisitHistory = new TableInfo("visit_history", _columnsVisitHistory, _foreignKeysVisitHistory, _indicesVisitHistory);
+        final TableInfo _existingVisitHistory = TableInfo.read(_db, "visit_history");
+        if (! _infoVisitHistory.equals(_existingVisitHistory)) {
+          return new RoomOpenHelper.ValidationResult(false, "visit_history(com.example.gpslog.VisitHistory).\n"
+                  + " Expected:\n" + _infoVisitHistory + "\n"
+                  + " Found:\n" + _existingVisitHistory);
+        }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "9d901de28b06dee7e46eba272b4288f3", "6c94484b44f69cecc3fb572e63ea60e8");
+    }, "d319938dbff1b6d05716cd3862a69804", "38eeafa8ecacfff450ca33fcfffb30da");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(configuration.context)
         .name(configuration.name)
         .callback(_openCallback)
@@ -147,7 +164,7 @@ public final class AppDatabase_Impl extends AppDatabase {
   protected InvalidationTracker createInvalidationTracker() {
     final HashMap<String, String> _shadowTablesMap = new HashMap<String, String>(0);
     HashMap<String, Set<String>> _viewTables = new HashMap<String, Set<String>>(0);
-    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "locations","visit_logs","daily_totals");
+    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "locations","visit_logs","daily_totals","visit_history");
   }
 
   @Override
@@ -159,6 +176,7 @@ public final class AppDatabase_Impl extends AppDatabase {
       _db.execSQL("DELETE FROM `locations`");
       _db.execSQL("DELETE FROM `visit_logs`");
       _db.execSQL("DELETE FROM `daily_totals`");
+      _db.execSQL("DELETE FROM `visit_history`");
       super.setTransactionSuccessful();
     } finally {
       super.endTransaction();

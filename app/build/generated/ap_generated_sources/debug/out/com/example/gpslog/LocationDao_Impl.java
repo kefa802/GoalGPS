@@ -25,6 +25,8 @@ public final class LocationDao_Impl implements LocationDao {
 
   private final EntityInsertionAdapter<DailyAccumulator> __insertionAdapterOfDailyAccumulator;
 
+  private final EntityInsertionAdapter<VisitHistory> __insertionAdapterOfVisitHistory;
+
   private final EntityDeletionOrUpdateAdapter<LocationEntity> __deletionAdapterOfLocationEntity;
 
   private final EntityDeletionOrUpdateAdapter<LocationEntity> __updateAdapterOfLocationEntity;
@@ -36,6 +38,14 @@ public final class LocationDao_Impl implements LocationDao {
   private final SharedSQLiteStatement __preparedStmtOfDeleteDaily;
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteAllDailyForLocation;
+
+  private final SharedSQLiteStatement __preparedStmtOfDeleteHistoryDaily;
+
+  private final SharedSQLiteStatement __preparedStmtOfDeleteAllHistoryForLocation;
+
+  private final SharedSQLiteStatement __preparedStmtOfDeleteHistoryById;
+
+  private final SharedSQLiteStatement __preparedStmtOfDeleteAllHistoryForDate;
 
   public LocationDao_Impl(RoomDatabase __db) {
     this.__db = __db;
@@ -74,6 +84,26 @@ public final class LocationDao_Impl implements LocationDao {
         }
         stmt.bindLong(3, value.totalInMs);
         stmt.bindLong(4, value.totalOutMs);
+      }
+    };
+    this.__insertionAdapterOfVisitHistory = new EntityInsertionAdapter<VisitHistory>(__db) {
+      @Override
+      public String createQuery() {
+        return "INSERT OR ABORT INTO `visit_history` (`id`,`locationId`,`date`,`timestamp`,`isEntry`) VALUES (nullif(?, 0),?,?,?,?)";
+      }
+
+      @Override
+      public void bind(SupportSQLiteStatement stmt, VisitHistory value) {
+        stmt.bindLong(1, value.id);
+        stmt.bindLong(2, value.locationId);
+        if (value.date == null) {
+          stmt.bindNull(3);
+        } else {
+          stmt.bindString(3, value.date);
+        }
+        stmt.bindLong(4, value.timestamp);
+        final int _tmp = value.isEntry ? 1 : 0;
+        stmt.bindLong(5, _tmp);
       }
     };
     this.__deletionAdapterOfLocationEntity = new EntityDeletionOrUpdateAdapter<LocationEntity>(__db) {
@@ -152,6 +182,34 @@ public final class LocationDao_Impl implements LocationDao {
         return _query;
       }
     };
+    this.__preparedStmtOfDeleteHistoryDaily = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM visit_history WHERE locationId = ? AND date = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfDeleteAllHistoryForLocation = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM visit_history WHERE locationId = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfDeleteHistoryById = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM visit_history WHERE id = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfDeleteAllHistoryForDate = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM visit_history WHERE date = ?";
+        return _query;
+      }
+    };
   }
 
   @Override
@@ -172,6 +230,18 @@ public final class LocationDao_Impl implements LocationDao {
     __db.beginTransaction();
     try {
       __insertionAdapterOfDailyAccumulator.insert(item);
+      __db.setTransactionSuccessful();
+    } finally {
+      __db.endTransaction();
+    }
+  }
+
+  @Override
+  public void insertHistory(final VisitHistory history) {
+    __db.assertNotSuspendingTransaction();
+    __db.beginTransaction();
+    try {
+      __insertionAdapterOfVisitHistory.insert(history);
       __db.setTransactionSuccessful();
     } finally {
       __db.endTransaction();
@@ -269,6 +339,80 @@ public final class LocationDao_Impl implements LocationDao {
   }
 
   @Override
+  public void deleteHistoryDaily(final int locId, final String date) {
+    __db.assertNotSuspendingTransaction();
+    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteHistoryDaily.acquire();
+    int _argIndex = 1;
+    _stmt.bindLong(_argIndex, locId);
+    _argIndex = 2;
+    if (date == null) {
+      _stmt.bindNull(_argIndex);
+    } else {
+      _stmt.bindString(_argIndex, date);
+    }
+    __db.beginTransaction();
+    try {
+      _stmt.executeUpdateDelete();
+      __db.setTransactionSuccessful();
+    } finally {
+      __db.endTransaction();
+      __preparedStmtOfDeleteHistoryDaily.release(_stmt);
+    }
+  }
+
+  @Override
+  public void deleteAllHistoryForLocation(final int locId) {
+    __db.assertNotSuspendingTransaction();
+    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteAllHistoryForLocation.acquire();
+    int _argIndex = 1;
+    _stmt.bindLong(_argIndex, locId);
+    __db.beginTransaction();
+    try {
+      _stmt.executeUpdateDelete();
+      __db.setTransactionSuccessful();
+    } finally {
+      __db.endTransaction();
+      __preparedStmtOfDeleteAllHistoryForLocation.release(_stmt);
+    }
+  }
+
+  @Override
+  public void deleteHistoryById(final int id) {
+    __db.assertNotSuspendingTransaction();
+    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteHistoryById.acquire();
+    int _argIndex = 1;
+    _stmt.bindLong(_argIndex, id);
+    __db.beginTransaction();
+    try {
+      _stmt.executeUpdateDelete();
+      __db.setTransactionSuccessful();
+    } finally {
+      __db.endTransaction();
+      __preparedStmtOfDeleteHistoryById.release(_stmt);
+    }
+  }
+
+  @Override
+  public void deleteAllHistoryForDate(final String date) {
+    __db.assertNotSuspendingTransaction();
+    final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteAllHistoryForDate.acquire();
+    int _argIndex = 1;
+    if (date == null) {
+      _stmt.bindNull(_argIndex);
+    } else {
+      _stmt.bindString(_argIndex, date);
+    }
+    __db.beginTransaction();
+    try {
+      _stmt.executeUpdateDelete();
+      __db.setTransactionSuccessful();
+    } finally {
+      __db.endTransaction();
+      __preparedStmtOfDeleteAllHistoryForDate.release(_stmt);
+    }
+  }
+
+  @Override
   public List<LocationEntity> getAll() {
     final String _sql = "SELECT * FROM locations ORDER BY displayOrder ASC";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
@@ -294,6 +438,42 @@ public final class LocationDao_Impl implements LocationDao {
         _item.longitude = _cursor.getDouble(_cursorIndexOfLongitude);
         _item.displayOrder = _cursor.getInt(_cursorIndexOfDisplayOrder);
         _result.add(_item);
+      }
+      return _result;
+    } finally {
+      _cursor.close();
+      _statement.release();
+    }
+  }
+
+  @Override
+  public LocationEntity getLocationById(final int id) {
+    final String _sql = "SELECT * FROM locations WHERE id = ? LIMIT 1";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, id);
+    __db.assertNotSuspendingTransaction();
+    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+    try {
+      final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+      final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
+      final int _cursorIndexOfLatitude = CursorUtil.getColumnIndexOrThrow(_cursor, "latitude");
+      final int _cursorIndexOfLongitude = CursorUtil.getColumnIndexOrThrow(_cursor, "longitude");
+      final int _cursorIndexOfDisplayOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "displayOrder");
+      final LocationEntity _result;
+      if(_cursor.moveToFirst()) {
+        _result = new LocationEntity();
+        _result.id = _cursor.getInt(_cursorIndexOfId);
+        if (_cursor.isNull(_cursorIndexOfName)) {
+          _result.name = null;
+        } else {
+          _result.name = _cursor.getString(_cursorIndexOfName);
+        }
+        _result.latitude = _cursor.getDouble(_cursorIndexOfLatitude);
+        _result.longitude = _cursor.getDouble(_cursorIndexOfLongitude);
+        _result.displayOrder = _cursor.getInt(_cursorIndexOfDisplayOrder);
+      } else {
+        _result = null;
       }
       return _result;
     } finally {
@@ -368,6 +548,86 @@ public final class LocationDao_Impl implements LocationDao {
         }
         _result.totalInMs = _cursor.getLong(_cursorIndexOfTotalInMs);
         _result.totalOutMs = _cursor.getLong(_cursorIndexOfTotalOutMs);
+      } else {
+        _result = null;
+      }
+      return _result;
+    } finally {
+      _cursor.close();
+      _statement.release();
+    }
+  }
+
+  @Override
+  public List<VisitHistory> getHistoryForDate(final String date) {
+    final String _sql = "SELECT * FROM visit_history WHERE date = ? ORDER BY timestamp DESC";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    if (date == null) {
+      _statement.bindNull(_argIndex);
+    } else {
+      _statement.bindString(_argIndex, date);
+    }
+    __db.assertNotSuspendingTransaction();
+    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+    try {
+      final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+      final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
+      final int _cursorIndexOfDate = CursorUtil.getColumnIndexOrThrow(_cursor, "date");
+      final int _cursorIndexOfTimestamp = CursorUtil.getColumnIndexOrThrow(_cursor, "timestamp");
+      final int _cursorIndexOfIsEntry = CursorUtil.getColumnIndexOrThrow(_cursor, "isEntry");
+      final List<VisitHistory> _result = new ArrayList<VisitHistory>(_cursor.getCount());
+      while(_cursor.moveToNext()) {
+        final VisitHistory _item;
+        _item = new VisitHistory();
+        _item.id = _cursor.getInt(_cursorIndexOfId);
+        _item.locationId = _cursor.getInt(_cursorIndexOfLocationId);
+        if (_cursor.isNull(_cursorIndexOfDate)) {
+          _item.date = null;
+        } else {
+          _item.date = _cursor.getString(_cursorIndexOfDate);
+        }
+        _item.timestamp = _cursor.getLong(_cursorIndexOfTimestamp);
+        final int _tmp;
+        _tmp = _cursor.getInt(_cursorIndexOfIsEntry);
+        _item.isEntry = _tmp != 0;
+        _result.add(_item);
+      }
+      return _result;
+    } finally {
+      _cursor.close();
+      _statement.release();
+    }
+  }
+
+  @Override
+  public VisitHistory getLastHistory(final int locId) {
+    final String _sql = "SELECT * FROM visit_history WHERE locationId = ? ORDER BY timestamp DESC LIMIT 1";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, locId);
+    __db.assertNotSuspendingTransaction();
+    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+    try {
+      final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+      final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
+      final int _cursorIndexOfDate = CursorUtil.getColumnIndexOrThrow(_cursor, "date");
+      final int _cursorIndexOfTimestamp = CursorUtil.getColumnIndexOrThrow(_cursor, "timestamp");
+      final int _cursorIndexOfIsEntry = CursorUtil.getColumnIndexOrThrow(_cursor, "isEntry");
+      final VisitHistory _result;
+      if(_cursor.moveToFirst()) {
+        _result = new VisitHistory();
+        _result.id = _cursor.getInt(_cursorIndexOfId);
+        _result.locationId = _cursor.getInt(_cursorIndexOfLocationId);
+        if (_cursor.isNull(_cursorIndexOfDate)) {
+          _result.date = null;
+        } else {
+          _result.date = _cursor.getString(_cursorIndexOfDate);
+        }
+        _result.timestamp = _cursor.getLong(_cursorIndexOfTimestamp);
+        final int _tmp;
+        _tmp = _cursor.getInt(_cursorIndexOfIsEntry);
+        _result.isEntry = _tmp != 0;
       } else {
         _result = null;
       }
