@@ -8,7 +8,7 @@ git fetch origin
 git reset --hard origin/main
 
 # 実行権限を念のため付け直す
-chmod +x pull.sh build.sh
+chmod +x pull.sh build.sh commit.sh
 
 echo "✅ 同期が完了しました！"
 echo "🚀 ビルドするには ./build.sh を実行してください。"
