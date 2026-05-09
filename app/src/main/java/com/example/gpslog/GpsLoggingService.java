@@ -38,7 +38,7 @@ public class GpsLoggingService extends Service {
     private LocationCallback locationCallback;
     private AppDatabase db;
     private MyWebServer server;
-    private long lastProcessTime = 0; // ✅ 追加：前回の処理時間
+    private long lastProcessTime = 0;
 
     @Override
     public void onCreate() {
@@ -50,10 +50,7 @@ public class GpsLoggingService extends Service {
         server = new MyWebServer(8080);
         try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) {}
 
-        // 15秒間隔の省電力GPSリクエスト
-        LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000)
-                .setMinUpdateIntervalMillis(10000)
-                .build();
+        LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000).setMinUpdateIntervalMillis(10000).build();
 
         locationCallback = new LocationCallback() {
             @Override public void onLocationResult(@NonNull LocationResult result) {
@@ -66,10 +63,7 @@ public class GpsLoggingService extends Service {
     private void processLocation(Location location) {
         long now = System.currentTimeMillis();
         long elapsed = 15000;
-        if (lastProcessTime > 0) {
-            elapsed = now - lastProcessTime;
-            if (elapsed < 0) elapsed = 15000;
-        }
+        if (lastProcessTime > 0) { elapsed = now - lastProcessTime; if (elapsed < 0) elapsed = 15000; }
         lastProcessTime = now;
 
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
@@ -80,25 +74,38 @@ public class GpsLoggingService extends Service {
         double lng = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lng", 0)) : location.getLongitude();
 
         Intent intent = new Intent("GPS_LOCATION_UPDATE");
-        intent.putExtra("lat", lat); 
-        intent.putExtra("lng", lng); 
-        intent.putExtra("is_mock", isMock);
-        intent.putExtra("fix_time", now); // ✅ 追加：画面側に基準時間を送る
+        intent.putExtra("lat", lat); intent.putExtra("lng", lng); intent.putExtra("is_mock", isMock); intent.putExtra("fix_time", now);
         sendBroadcast(intent);
 
         List<LocationEntity> locs = db.locationDao().getAll();
         for (LocationEntity loc : locs) {
             float[] dist = new float[1];
             Location.distanceBetween(lat, lng, loc.latitude, loc.longitude, dist);
+            boolean isCurrentlyIn = (dist[0] <= 20.0f);
+
+            // 1. 積算ロジックの更新
             DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
             if (data == null) {
                 data = new DailyAccumulator(); data.locationId = loc.id; data.date = today;
                 db.locationDao().insertDaily(data);
                 data = db.locationDao().getDaily(loc.id, today);
             }
-            // ✅ 正確な経過時間を足し算する
-            if (dist[0] <= 20.0f) { data.totalInMs += elapsed; } else { data.totalOutMs += elapsed; }
+            if (isCurrentlyIn) { data.totalInMs += elapsed; } else { data.totalOutMs += elapsed; }
             db.locationDao().updateDaily(data);
+
+            // 2. 履歴（IN/OUT）の検知ロジック
+            VisitHistory lastHistory = db.locationDao().getLastHistory(loc.id);
+            boolean wasIn = (lastHistory != null && lastHistory.isEntry);
+
+            if (lastHistory == null) {
+                if (isCurrentlyIn) {
+                    VisitHistory h = new VisitHistory(); h.locationId = loc.id; h.date = today; h.timestamp = now; h.isEntry = true;
+                    db.locationDao().insertHistory(h);
+                }
+            } else if (isCurrentlyIn != wasIn) {
+                VisitHistory h = new VisitHistory(); h.locationId = loc.id; h.date = today; h.timestamp = now; h.isEntry = isCurrentlyIn;
+                db.locationDao().insertHistory(h);
+            }
         }
     }
 
