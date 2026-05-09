@@ -43,7 +43,6 @@ public class MainActivity extends AppCompatActivity {
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LogAdapter adapter;
     
-    // ✅ 履歴用のリストとアダプタ
     private List<VisitHistory> historyLogs = new ArrayList<>();
     private HistoryAdapter historyAdapter;
 
@@ -81,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
         rvHistoryLogs = findViewById(R.id.rvHistoryLogs);
 
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.3.0"); // ✅ メジャーアップデート
+        tvVersion.setText("Ver: 1.3.1"); // ✅ バージョン更新
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         
@@ -102,12 +101,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        refreshData();
+        // ✅ 修正：アプリ起動時に日付をセットしてからデータを読み込む
+        updateDateDisplay();
         updateHandler.postDelayed(updateRunnable, 1000);
     }
 
-    private void changeDate(int amount) { displayDate.add(Calendar.DATE, amount); tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(displayDate.getTime())); refreshData(); }
+    private void changeDate(int amount) { 
+        displayDate.add(Calendar.DATE, amount); 
+        updateDateDisplay(); 
+    }
     
+    // ✅ 復活：日付テキストを更新するメソッド
+    private void updateDateDisplay() {
+        tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(displayDate.getTime()));
+        refreshData();
+    }
+
     private void refreshData() {
         String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayDate.getTime());
         
@@ -203,7 +212,6 @@ public class MainActivity extends AppCompatActivity {
         @Override public int getItemCount() { return masterLocations.size(); }
     }
     
-    // ✅ 履歴リスト用のアダプタ
     class HistoryAdapter extends RecyclerView.Adapter<HistoryViewHolder> {
         @NonNull @Override public HistoryViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) { return new HistoryViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_history, p, false)); }
         @Override public void onBindViewHolder(@NonNull HistoryViewHolder h, int pos) {
