@@ -24,10 +24,13 @@ public interface LocationDao {
     @Query("DELETE FROM daily_totals WHERE locationId = :locId AND date = :date") void deleteDaily(int locId, String date);
     @Query("DELETE FROM daily_totals WHERE locationId = :locId") void deleteAllDailyForLocation(int locId);
 
-    // ✅ 新規：履歴用の命令
     @Insert void insertHistory(VisitHistory history);
     @Query("SELECT * FROM visit_history WHERE date = :date ORDER BY timestamp DESC") List<VisitHistory> getHistoryForDate(String date);
     @Query("SELECT * FROM visit_history WHERE locationId = :locId ORDER BY timestamp DESC LIMIT 1") VisitHistory getLastHistory(int locId);
     @Query("DELETE FROM visit_history WHERE locationId = :locId AND date = :date") void deleteHistoryDaily(int locId, String date);
     @Query("DELETE FROM visit_history WHERE locationId = :locId") void deleteAllHistoryForLocation(int locId);
+    
+    // ✅ 新規：個別クリアと一括クリア用の命令
+    @Query("DELETE FROM visit_history WHERE id = :id") void deleteHistoryById(int id);
+    @Query("DELETE FROM visit_history WHERE date = :date") void deleteAllHistoryForDate(String date);
 }
