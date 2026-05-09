@@ -33,25 +33,31 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-    private TextView tvStatusBanner, tvDate, tvHeaderIn, tvHeaderOut, tvVersion, tvEmpty;
+    private TextView tvStatusBanner, tvDate, tvVersion, tvEmpty;
     private Switch switchRecord;
-    private RecyclerView rvLogs;
+    private RecyclerView rvLogs, rvHistoryLogs;
     private AppDatabase db;
     private boolean isHourUnit = false;
     private Calendar displayDate = Calendar.getInstance();
+    
     private List<LocationEntity> masterLocations = new ArrayList<>();
     private LogAdapter adapter;
+    
+    // ✅ 履歴用のリストとアダプタ
+    private List<VisitHistory> historyLogs = new ArrayList<>();
+    private HistoryAdapter historyAdapter;
+
     private String currentLocationStr = "取得中...";
     private double currentLat = 0.0;
     private double currentLng = 0.0;
     private boolean isCurrentlyMocking = false;
-    private long lastFixTime = 0; // ✅ 追加：最後のGPS取得時間
+    private long lastFixTime = 0;
 
     private Handler updateHandler = new Handler();
     private Runnable updateRunnable = new Runnable() {
         @Override public void run() {
             refreshData();
-            updateHandler.postDelayed(this, 1000); // 1秒ごとに画面を更新
+            updateHandler.postDelayed(this, 1000); 
         }
     };
 
@@ -60,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
             currentLat = intent.getDoubleExtra("lat", 0);
             currentLng = intent.getDoubleExtra("lng", 0);
             isCurrentlyMocking = intent.getBooleanExtra("is_mock", false);
-            lastFixTime = intent.getLongExtra("fix_time", 0); // ✅ 時間を受信
+            lastFixTime = intent.getLongExtra("fix_time", 0);
             currentLocationStr = String.format(Locale.US, "%.5f, %.5f", currentLat, currentLng);
             updateUI(isServiceRunning(GpsLoggingService.class));
         }
@@ -69,10 +75,20 @@ public class MainActivity extends AppCompatActivity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvHeaderIn = findViewById(R.id.tvHeaderIn); tvHeaderOut = findViewById(R.id.tvHeaderOut); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); rvLogs = findViewById(R.id.rvDashboardLogs);
+        
+        tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); 
+        rvLogs = findViewById(R.id.rvDashboardLogs);
+        rvHistoryLogs = findViewById(R.id.rvHistoryLogs);
+
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        tvVersion.setText("Ver: 1.2.9"); // ✅ バージョン更新
+        tvVersion.setText("Ver: 1.3.0"); // ✅ メジャーアップデート
+
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
+        
+        rvHistoryLogs.setLayoutManager(new LinearLayoutManager(this)); 
+        historyAdapter = new HistoryAdapter(); 
+        rvHistoryLogs.setAdapter(historyAdapter);
+
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { isHourUnit = (id == R.id.rbHour); refreshData(); });
         switchRecord.setOnClickListener(v -> { if (switchRecord.isChecked()) { startGpsService(); } else { stopGpsService(); } });
@@ -91,10 +107,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void changeDate(int amount) { displayDate.add(Calendar.DATE, amount); tvDate.setText(new SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN).format(displayDate.getTime())); refreshData(); }
+    
     private void refreshData() {
+        String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayDate.getTime());
+        
+        // メインの積算リスト更新
         List<LocationEntity> freshData = db.locationDao().getAll(); masterLocations.clear();
         if (freshData != null && !freshData.isEmpty()) { masterLocations.addAll(freshData); tvEmpty.setVisibility(View.GONE); rvLogs.setVisibility(View.VISIBLE); } else { tvEmpty.setVisibility(View.VISIBLE); rvLogs.setVisibility(View.GONE); }
         adapter.notifyDataSetChanged();
+
+        // 履歴リストの更新
+        List<VisitHistory> hLogs = db.locationDao().getHistoryForDate(dateStr);
+        historyLogs.clear();
+        if(hLogs != null) historyLogs.addAll(hLogs);
+        historyAdapter.notifyDataSetChanged();
     }
 
     private void updateUI(boolean run) {
@@ -129,8 +155,7 @@ public class MainActivity extends AppCompatActivity {
             LocationEntity loc = masterLocations.get(pos); h.name.setText(loc.name); h.location.setText(String.format(Locale.US, "%.5f, %.5f", loc.latitude, loc.longitude));
             String date = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayDate.getTime());
             DailyAccumulator d = db.locationDao().getDaily(loc.id, date);
-            long in = (d != null) ? d.totalInMs : 0;
-            long out = (d != null) ? d.totalOutMs : 0;
+            long in = (d != null) ? d.totalInMs : 0; long out = (d != null) ? d.totalOutMs : 0;
             
             boolean isOnline = switchRecord.isChecked();
             Calendar todayCal = Calendar.getInstance();
@@ -138,47 +163,38 @@ public class MainActivity extends AppCompatActivity {
             boolean isCurrentlyIn = false;
 
             if (isOnline && isTodayDate && currentLat != 0.0 && currentLng != 0.0) {
-                float[] dist = new float[1];
-                android.location.Location.distanceBetween(currentLat, currentLng, loc.latitude, loc.longitude, dist);
+                float[] dist = new float[1]; android.location.Location.distanceBetween(currentLat, currentLng, loc.latitude, loc.longitude, dist);
                 if (dist[0] <= 20.0f) isCurrentlyIn = true;
             }
 
-            // ✅ 追加：DB更新の合間（15秒間）を画面上で1秒ずつ進める補完ロジック
             if (isOnline && isTodayDate && lastFixTime > 0) {
                 long elapsedSinceLastFix = System.currentTimeMillis() - lastFixTime;
-                if (elapsedSinceLastFix > 0 && elapsedSinceLastFix < 60000) { // 最大60秒のズレまで許容
-                    if (isCurrentlyIn) {
-                        in += elapsedSinceLastFix;
-                    } else {
-                        out += elapsedSinceLastFix;
-                    }
+                if (elapsedSinceLastFix > 0 && elapsedSinceLastFix < 60000) { 
+                    if (isCurrentlyIn) { in += elapsedSinceLastFix; } else { out += elapsedSinceLastFix; }
                 }
             }
 
             if (isHourUnit) {
-                h.in.setText(String.format(Locale.JAPAN, "%.2f", (double)(in/60000)/60.0));
-                h.out.setText(String.format(Locale.JAPAN, "%.2f", (double)(out/60000)/60.0));
+                h.in.setText(String.format(Locale.JAPAN, "%.2f", (double)(in/60000)/60.0)); h.out.setText(String.format(Locale.JAPAN, "%.2f", (double)(out/60000)/60.0));
             } else {
-                h.in.setText(String.format(Locale.JAPAN, "%d:%02d", (in/1000)/60, (in/1000)%60));
-                h.out.setText(String.format(Locale.JAPAN, "%d:%02d", (out/1000)/60, (out/1000)%60));
+                h.in.setText(String.format(Locale.JAPAN, "%d:%02d", (in/1000)/60, (in/1000)%60)); h.out.setText(String.format(Locale.JAPAN, "%d:%02d", (out/1000)/60, (out/1000)%60));
             }
 
             if (isOnline && isTodayDate) {
                 h.in.setBackgroundColor(isCurrentlyIn ? Color.parseColor("#C8E6C9") : Color.TRANSPARENT);
                 h.out.setBackgroundColor(!isCurrentlyIn ? Color.parseColor("#FFCDD2") : Color.TRANSPARENT);
             } else {
-                h.in.setBackgroundColor(Color.TRANSPARENT);
-                h.out.setBackgroundColor(Color.TRANSPARENT);
+                h.in.setBackgroundColor(Color.TRANSPARENT); h.out.setBackgroundColor(Color.TRANSPARENT);
             }
             
             h.itemView.setOnLongClickListener(v -> {
                 CharSequence[] items = {"この日をクリア", "上へ移動", "下へ移動", "削除", "📍 ここにワープ"};
                 new AlertDialog.Builder(MainActivity.this).setTitle(loc.name).setItems(items, (dialog, which) -> {
                     switch (which) {
-                        case 0: db.locationDao().deleteDaily(loc.id, date); refreshData(); break;
+                        case 0: db.locationDao().deleteDaily(loc.id, date); db.locationDao().deleteHistoryDaily(loc.id, date); refreshData(); break;
                         case 1: if (pos > 0) swap(pos, pos - 1); break;
                         case 2: if (pos < masterLocations.size() - 1) swap(pos, pos + 1); break;
-                        case 3: db.locationDao().deleteLogsByLocationId(loc.id); db.locationDao().deleteAllDailyForLocation(loc.id); db.locationDao().delete(loc); refreshData(); break;
+                        case 3: db.locationDao().deleteLogsByLocationId(loc.id); db.locationDao().deleteAllDailyForLocation(loc.id); db.locationDao().deleteAllHistoryForLocation(loc.id); db.locationDao().delete(loc); refreshData(); break;
                         case 4: getSharedPreferences("gps_mock", Context.MODE_PRIVATE).edit().putBoolean("is_mock", true).putLong("mock_lat", Double.doubleToRawLongBits(loc.latitude)).putLong("mock_lng", Double.doubleToRawLongBits(loc.longitude)).apply(); Toast.makeText(MainActivity.this, "ワープしました！", Toast.LENGTH_SHORT).show(); break;
                     }
                 }).show(); return true;
@@ -187,6 +203,24 @@ public class MainActivity extends AppCompatActivity {
         @Override public int getItemCount() { return masterLocations.size(); }
     }
     
+    // ✅ 履歴リスト用のアダプタ
+    class HistoryAdapter extends RecyclerView.Adapter<HistoryViewHolder> {
+        @NonNull @Override public HistoryViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) { return new HistoryViewHolder(LayoutInflater.from(p.getContext()).inflate(R.layout.item_history, p, false)); }
+        @Override public void onBindViewHolder(@NonNull HistoryViewHolder h, int pos) {
+            VisitHistory history = historyLogs.get(pos);
+            h.time.setText(new SimpleDateFormat("HH:mm:ss", Locale.JAPAN).format(new Date(history.timestamp)));
+            h.action.setText(history.isEntry ? "IN" : "OUT");
+            h.action.setTextColor(history.isEntry ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336"));
+            LocationEntity loc = db.locationDao().getLocationById(history.locationId);
+            h.name.setText(loc != null ? loc.name : "不明");
+        }
+        @Override public int getItemCount() { return historyLogs.size(); }
+    }
+    static class HistoryViewHolder extends RecyclerView.ViewHolder {
+        TextView time, action, name;
+        HistoryViewHolder(View v) { super(v); time = v.findViewById(R.id.tvHistoryTime); action = v.findViewById(R.id.tvHistoryAction); name = v.findViewById(R.id.tvHistoryName); }
+    }
+
     private void swap(int f, int t) { LocationEntity from = masterLocations.get(f), to = masterLocations.get(t); int temp = from.displayOrder; from.displayOrder = to.displayOrder; to.displayOrder = temp; db.locationDao().update(from); db.locationDao().update(to); refreshData(); }
     static class LogViewHolder extends RecyclerView.ViewHolder { TextView name, location, in, out; LogViewHolder(View v) { super(v); name = v.findViewById(R.id.tvLogName); location = v.findViewById(R.id.tvLogLocation); in = v.findViewById(R.id.tvLogInTime); out = v.findViewById(R.id.tvLogOutTime); } }
 }
