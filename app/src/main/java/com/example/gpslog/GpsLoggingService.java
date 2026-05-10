@@ -8,6 +8,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
@@ -28,6 +29,7 @@ import fi.iki.elonen.NanoHTTPD;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -38,22 +40,24 @@ public class GpsLoggingService extends Service {
     private LocationCallback locationCallback;
     private AppDatabase db;
     private MyWebServer server;
-    private long lastProcessTime = 0;
 
     @Override
     public void onCreate() {
         super.onCreate();
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build();
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel();
-        startForeground(1, getNotification("GPSログ記録中..."));
+
+        if (Build.VERSION.SDK_INT >= 34) { startForeground(1, getNotification("GPSログ記録中..."), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION); } 
+        else { startForeground(1, getNotification("GPSログ記録中...")); }
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         server = new MyWebServer(8080);
         try { server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false); } catch (IOException e) {}
 
         LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000).setMinUpdateIntervalMillis(10000).build();
-
         locationCallback = new LocationCallback() {
             @Override public void onLocationResult(@NonNull LocationResult result) {
+                if (result == null) return;
                 for (Location location : result.getLocations()) { processLocation(location); }
             }
         };
@@ -61,83 +65,90 @@ public class GpsLoggingService extends Service {
     }
 
     private void processLocation(Location location) {
+        if (location == null) return;
         long now = System.currentTimeMillis();
-        long elapsed = 15000;
-        if (lastProcessTime > 0) { elapsed = now - lastProcessTime; if (elapsed < 0) elapsed = 15000; }
-        lastProcessTime = now;
-
-        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
         
+        List<LocationEntity> locs = db.locationDao().getAll();
+        if (locs == null || locs.isEmpty()) return;
+
+        // ✅ 日付またぎの自動分割（ミッドナイト・カット）
+        checkMidnightCrossing(now, locs);
+
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
         android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
         boolean isMock = prefs.getBoolean("is_mock", false);
         double lat = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lat", 0)) : location.getLatitude();
         double lng = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lng", 0)) : location.getLongitude();
 
-        Intent intent = new Intent("GPS_LOCATION_UPDATE");
-        intent.putExtra("lat", lat); intent.putExtra("lng", lng); intent.putExtra("is_mock", isMock); intent.putExtra("fix_time", now);
-        sendBroadcast(intent);
+        sendBroadcast(new Intent("GPS_LOCATION_UPDATE").putExtra("lat", lat).putExtra("lng", lng).putExtra("is_mock", isMock).putExtra("fix_time", now));
 
-        List<LocationEntity> locs = db.locationDao().getAll();
         for (LocationEntity loc : locs) {
             float[] dist = new float[1];
             Location.distanceBetween(lat, lng, loc.latitude, loc.longitude, dist);
             boolean isCurrentlyIn = (dist[0] <= 20.0f);
 
-            // 1. 積算ロジックの更新
-            DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
-            if (data == null) {
-                data = new DailyAccumulator(); data.locationId = loc.id; data.date = today;
-                db.locationDao().insertDaily(data);
-                data = db.locationDao().getDaily(loc.id, today);
-            }
-            if (isCurrentlyIn) { data.totalInMs += elapsed; } else { data.totalOutMs += elapsed; }
-            db.locationDao().updateDaily(data);
-
-            // 2. 履歴（IN/OUT）の検知ロジック
-            VisitHistory lastHistory = db.locationDao().getLastHistory(loc.id);
-            boolean wasIn = (lastHistory != null && lastHistory.isEntry);
-
-            if (lastHistory == null) {
-                if (isCurrentlyIn) {
-                    VisitHistory h = new VisitHistory(); h.locationId = loc.id; h.date = today; h.timestamp = now; h.isEntry = true;
-                    db.locationDao().insertHistory(h);
-                }
-            } else if (isCurrentlyIn != wasIn) {
-                VisitHistory h = new VisitHistory(); h.locationId = loc.id; h.date = today; h.timestamp = now; h.isEntry = isCurrentlyIn;
-                db.locationDao().insertHistory(h);
+            VisitHistory lastH = db.locationDao().getLastHistory(loc.id);
+            if (lastH == null) {
+                if (isCurrentlyIn) insertH(loc.id, today, now, true);
+            } else if (isCurrentlyIn != lastH.isEntry) {
+                insertH(loc.id, today, now, isCurrentlyIn);
             }
         }
+    }
+
+    private void checkMidnightCrossing(long now, List<LocationEntity> locs) {
+        String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
+        android.content.SharedPreferences prefs = getSharedPreferences("gps_state", Context.MODE_PRIVATE);
+        String lastDateStr = prefs.getString("last_date", todayStr);
+
+        if (!lastDateStr.equals(todayStr)) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTimeInMillis(now);
+            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0);
+            long startOfToday = cal.getTimeInMillis();
+            long endOfYesterday = startOfToday - 1;
+
+            for (LocationEntity loc : locs) {
+                VisitHistory lastH = db.locationDao().getLastHistoryBefore(loc.id, startOfToday);
+                if (lastH != null && lastH.isEntry) {
+                    insertH(loc.id, lastDateStr, endOfYesterday, false);
+                    insertH(loc.id, todayStr, startOfToday, true);
+                }
+            }
+            prefs.edit().putString("last_date", todayStr).apply();
+        }
+    }
+
+    private void insertH(int lid, String d, long ts, boolean ent) {
+        VisitHistory vh = new VisitHistory(); vh.locationId = lid; vh.date = d; vh.timestamp = ts; vh.isEntry = ent;
+        db.locationDao().insertHistory(vh);
     }
 
     @Override public void onTaskRemoved(Intent rootIntent) {
         Intent restart = new Intent(getApplicationContext(), this.getClass()); restart.setPackage(getPackageName());
         PendingIntent pi = PendingIntent.getService(getApplicationContext(), 1, restart, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
-        ((AlarmManager)getSystemService(Context.ALARM_SERVICE)).set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, pi);
+        AlarmManager alarm = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (alarm != null) alarm.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, pi);
         super.onTaskRemoved(rootIntent);
     }
 
-    // ✅ 復活：JSONライブラリが正しく読み取れる専用の箱
-    private static class SimpleLog {
-        String name; String in_hour; String out_hour;
-        SimpleLog(String n, String i, String o) { this.name = n; this.in_hour = i; this.out_hour = o; }
-    }
+    private static class SimpleLog { String name; String in_hour; String out_hour; SimpleLog(String n, String i, String o) { this.name = n; this.in_hour = i; this.out_hour = o; } }
 
     private class MyWebServer extends NanoHTTPD {
         public MyWebServer(int port) { super(port); }
         @Override public Response serve(IHTTPSession session) {
-            // ✅ /logs へのアクセス時のみJSONを返すように修正
             if ("/logs".equals(session.getUri())) {
-                String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+                Calendar cal = Calendar.getInstance();
+                long now = System.currentTimeMillis();
                 List<SimpleLog> results = new ArrayList<>();
                 for (LocationEntity loc : db.locationDao().getAll()) {
-                    DailyAccumulator data = db.locationDao().getDaily(loc.id, today);
-                    String inH = (data != null) ? String.format(Locale.US, "%.2f", (double)data.totalInMs / 3600000.0) : "0.00";
-                    String outH = (data != null) ? String.format(Locale.US, "%.2f", (double)data.totalOutMs / 3600000.0) : "0.00";
-                    results.add(new SimpleLog(loc.name, inH, outH));
+                    long[] times = AppDatabase.calcTimes(db.locationDao(), loc.id, cal, true, now);
+                    results.add(new SimpleLog(loc.name, 
+                        String.format(Locale.US, "%.2f", (double)times[0]/3600000.0),
+                        String.format(Locale.US, "%.2f", (double)times[1]/3600000.0)));
                 }
                 Response r = newFixedLengthResponse(Response.Status.OK, "application/json", new Gson().toJson(results));
-                r.addHeader("Access-Control-Allow-Origin", "*");
-                return r;
+                r.addHeader("Access-Control-Allow-Origin", "*"); return r;
             }
             return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Not Found");
         }
@@ -145,13 +156,12 @@ public class GpsLoggingService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "GPS記録サービス", NotificationManager.IMPORTANCE_MIN);
-            ((NotificationManager)getSystemService(NotificationManager.class)).createNotificationChannel(channel);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "GPS記録", NotificationManager.IMPORTANCE_MIN);
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
         }
     }
-    private Notification getNotification(String text) {
-        return new NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle("GoalGPS").setContentText(text).setSmallIcon(android.R.drawable.ic_menu_mylocation).setPriority(NotificationCompat.PRIORITY_MIN).build();
-    }
+    private Notification getNotification(String text) { return new NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle("GoalGPS").setContentText(text).setSmallIcon(android.R.drawable.ic_menu_mylocation).setPriority(NotificationCompat.PRIORITY_MIN).build(); }
     @Override public int onStartCommand(Intent i, int f, int s) { return START_STICKY; }
     @Override public void onDestroy() { super.onDestroy(); if (server != null) server.stop(); }
     @Nullable @Override public IBinder onBind(Intent intent) { return null; }
