@@ -601,6 +601,90 @@ public final class LocationDao_Impl implements LocationDao {
   }
 
   @Override
+  public List<VisitHistory> getHistoryForDateAsc(final int locId, final String date) {
+    final String _sql = "SELECT * FROM visit_history WHERE locationId = ? AND date = ? ORDER BY timestamp ASC";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 2);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, locId);
+    _argIndex = 2;
+    if (date == null) {
+      _statement.bindNull(_argIndex);
+    } else {
+      _statement.bindString(_argIndex, date);
+    }
+    __db.assertNotSuspendingTransaction();
+    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+    try {
+      final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+      final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
+      final int _cursorIndexOfDate = CursorUtil.getColumnIndexOrThrow(_cursor, "date");
+      final int _cursorIndexOfTimestamp = CursorUtil.getColumnIndexOrThrow(_cursor, "timestamp");
+      final int _cursorIndexOfIsEntry = CursorUtil.getColumnIndexOrThrow(_cursor, "isEntry");
+      final List<VisitHistory> _result = new ArrayList<VisitHistory>(_cursor.getCount());
+      while(_cursor.moveToNext()) {
+        final VisitHistory _item;
+        _item = new VisitHistory();
+        _item.id = _cursor.getInt(_cursorIndexOfId);
+        _item.locationId = _cursor.getInt(_cursorIndexOfLocationId);
+        if (_cursor.isNull(_cursorIndexOfDate)) {
+          _item.date = null;
+        } else {
+          _item.date = _cursor.getString(_cursorIndexOfDate);
+        }
+        _item.timestamp = _cursor.getLong(_cursorIndexOfTimestamp);
+        final int _tmp;
+        _tmp = _cursor.getInt(_cursorIndexOfIsEntry);
+        _item.isEntry = _tmp != 0;
+        _result.add(_item);
+      }
+      return _result;
+    } finally {
+      _cursor.close();
+      _statement.release();
+    }
+  }
+
+  @Override
+  public VisitHistory getLastHistoryBefore(final int locId, final long ts) {
+    final String _sql = "SELECT * FROM visit_history WHERE locationId = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT 1";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 2);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, locId);
+    _argIndex = 2;
+    _statement.bindLong(_argIndex, ts);
+    __db.assertNotSuspendingTransaction();
+    final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+    try {
+      final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+      final int _cursorIndexOfLocationId = CursorUtil.getColumnIndexOrThrow(_cursor, "locationId");
+      final int _cursorIndexOfDate = CursorUtil.getColumnIndexOrThrow(_cursor, "date");
+      final int _cursorIndexOfTimestamp = CursorUtil.getColumnIndexOrThrow(_cursor, "timestamp");
+      final int _cursorIndexOfIsEntry = CursorUtil.getColumnIndexOrThrow(_cursor, "isEntry");
+      final VisitHistory _result;
+      if(_cursor.moveToFirst()) {
+        _result = new VisitHistory();
+        _result.id = _cursor.getInt(_cursorIndexOfId);
+        _result.locationId = _cursor.getInt(_cursorIndexOfLocationId);
+        if (_cursor.isNull(_cursorIndexOfDate)) {
+          _result.date = null;
+        } else {
+          _result.date = _cursor.getString(_cursorIndexOfDate);
+        }
+        _result.timestamp = _cursor.getLong(_cursorIndexOfTimestamp);
+        final int _tmp;
+        _tmp = _cursor.getInt(_cursorIndexOfIsEntry);
+        _result.isEntry = _tmp != 0;
+      } else {
+        _result = null;
+      }
+      return _result;
+    } finally {
+      _cursor.close();
+      _statement.release();
+    }
+  }
+
+  @Override
   public VisitHistory getLastHistory(final int locId) {
     final String _sql = "SELECT * FROM visit_history WHERE locationId = ? ORDER BY timestamp DESC LIMIT 1";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
