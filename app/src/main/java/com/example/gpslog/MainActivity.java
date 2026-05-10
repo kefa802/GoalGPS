@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-    private TextView tvStatusBanner, tvDate, tvVersion, tvEmpty;
+    private TextView tvStatusBanner, tvDate, tvVersion, tvEmpty, tvHeaderIn, tvHeaderOut;
     private Switch switchRecord;
     private RecyclerView rvLogs, rvHistoryLogs;
     private AppDatabase db;
@@ -77,23 +77,41 @@ public class MainActivity extends AppCompatActivity {
             prefs.edit().remove("error").apply();
         }
 
-        tvStatusBanner = findViewById(R.id.tvStatusBanner); tvDate = findViewById(R.id.tvDate); tvVersion = findViewById(R.id.tvVersion); tvEmpty = findViewById(R.id.tvEmpty); switchRecord = findViewById(R.id.switchRecord); rvLogs = findViewById(R.id.rvDashboardLogs); rvHistoryLogs = findViewById(R.id.rvHistoryLogs);
-        tvVersion.setText("Ver: 1.4.0");
+        tvStatusBanner = findViewById(R.id.tvStatusBanner); 
+        tvDate = findViewById(R.id.tvDate); 
+        tvVersion = findViewById(R.id.tvVersion); 
+        tvEmpty = findViewById(R.id.tvEmpty); 
+        switchRecord = findViewById(R.id.switchRecord); 
+        rvLogs = findViewById(R.id.rvDashboardLogs); 
+        rvHistoryLogs = findViewById(R.id.rvHistoryLogs);
+        
+        // ✅ 見出しのTextViewを取得
+        tvHeaderIn = findViewById(R.id.tvHeaderIn);
+        tvHeaderOut = findViewById(R.id.tvHeaderOut);
+        
+        tvVersion.setText("Ver: 1.4.1");
 
         try { db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build(); } catch (Exception e) {}
 
         rvLogs.setLayoutManager(new LinearLayoutManager(this)); adapter = new LogAdapter(); rvLogs.setAdapter(adapter);
         rvHistoryLogs.setLayoutManager(new LinearLayoutManager(this)); historyAdapter = new HistoryAdapter(); rvHistoryLogs.setAdapter(historyAdapter);
 
-        findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
-        ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { isHourUnit = (id == R.id.rbHour); refreshData(); });
+        findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); 
+        findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
+        
+        // ✅ ラジオボタン切り替え時に見出しのテキストも変更する
+        ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { 
+            isHourUnit = (id == R.id.rbHour); 
+            tvHeaderIn.setText(isHourUnit ? "IN(時)" : "IN(分)");
+            tvHeaderOut.setText(isHourUnit ? "OUT(時)" : "OUT(分)");
+            refreshData(); 
+        });
         
         switchRecord.setOnClickListener(v -> { 
             if (switchRecord.isChecked()) {
                 startGpsService(); 
             } else {
                 stopGpsService(); 
-                // ✅ 手動でOFFにした時、現在INの場所すべてにOUTを記録して時間を止める
                 long now = System.currentTimeMillis();
                 String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
                 for (LocationEntity loc : db.locationDao().getAll()) {
@@ -157,7 +175,6 @@ public class MainActivity extends AppCompatActivity {
             boolean isT = (today.get(Calendar.YEAR) == displayDate.get(Calendar.YEAR) && today.get(Calendar.DAY_OF_YEAR) == displayDate.get(Calendar.DAY_OF_YEAR));
             long now = System.currentTimeMillis();
 
-            // ✅ DB計算エンジンから直接時間を取得
             long[] times = AppDatabase.calcTimes(db.locationDao(), loc.id, displayDate, isT, now);
             long in = times[0];
             long out = times[1];
