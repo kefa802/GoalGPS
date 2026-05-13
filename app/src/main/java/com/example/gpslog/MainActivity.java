@@ -84,12 +84,10 @@ public class MainActivity extends AppCompatActivity {
         switchRecord = findViewById(R.id.switchRecord); 
         rvLogs = findViewById(R.id.rvDashboardLogs); 
         rvHistoryLogs = findViewById(R.id.rvHistoryLogs);
-        
-        // ✅ 見出しのTextViewを取得
         tvHeaderIn = findViewById(R.id.tvHeaderIn);
         tvHeaderOut = findViewById(R.id.tvHeaderOut);
         
-        tvVersion.setText("Ver: 1.4.1");
+        tvVersion.setText("Ver: 1.4.2"); // ✅ バージョン更新
 
         try { db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, "goal_gps_db").fallbackToDestructiveMigration().allowMainThreadQueries().build(); } catch (Exception e) {}
 
@@ -99,7 +97,6 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnPrevDay).setOnClickListener(v -> changeDate(-1)); 
         findViewById(R.id.btnNextDay).setOnClickListener(v -> changeDate(1));
         
-        // ✅ ラジオボタン切り替え時に見出しのテキストも変更する
         ((RadioGroup)findViewById(R.id.rgUnit)).setOnCheckedChangeListener((g, id) -> { 
             isHourUnit = (id == R.id.rbHour); 
             tvHeaderIn.setText(isHourUnit ? "IN(時)" : "IN(分)");
@@ -179,10 +176,17 @@ public class MainActivity extends AppCompatActivity {
             long in = times[0];
             long out = times[1];
 
-            boolean isCurrentlyIn = false;
+            // ✅ UIの色塗りも裏のヒステリシス（遊び）に連動させる
+            VisitHistory lastH = db.locationDao().getLastHistory(loc.id);
+            boolean isCurrentlyIn = (lastH != null && lastH.isEntry);
+
             if (isOnline && isT && currentLat != 0.0) {
                 float[] dist = new float[1]; android.location.Location.distanceBetween(currentLat, currentLng, loc.latitude, loc.longitude, dist);
-                if (dist[0] <= 20.0f) isCurrentlyIn = true;
+                if (dist[0] <= 20.0f) {
+                    isCurrentlyIn = true;
+                } else if (dist[0] > 50.0f) {
+                    isCurrentlyIn = false;
+                }
             }
 
             if (isHourUnit) { h.in.setText(String.format(Locale.JAPAN, "%.2f", (double)(in/60000)/60.0)); h.out.setText(String.format(Locale.JAPAN, "%.2f", (double)(out/60000)/60.0)); }
