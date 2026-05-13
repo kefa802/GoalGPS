@@ -71,12 +71,17 @@ public class GpsLoggingService extends Service {
         List<LocationEntity> locs = db.locationDao().getAll();
         if (locs == null || locs.isEmpty()) return;
 
-        // ✅ 日付またぎの自動分割（ミッドナイト・カット）
         checkMidnightCrossing(now, locs);
 
-        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
         android.content.SharedPreferences prefs = getSharedPreferences("gps_mock", Context.MODE_PRIVATE);
         boolean isMock = prefs.getBoolean("is_mock", false);
+
+        // ✅ 対策1：精度フィルター（ワープ中以外で、誤差が50m以上あるブレたデータは捨てる）
+        if (!isMock && location.hasAccuracy() && location.getAccuracy() > 50.0f) {
+            return;
+        }
+
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(now));
         double lat = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lat", 0)) : location.getLatitude();
         double lng = isMock ? Double.longBitsToDouble(prefs.getLong("mock_lng", 0)) : location.getLongitude();
 
@@ -85,12 +90,21 @@ public class GpsLoggingService extends Service {
         for (LocationEntity loc : locs) {
             float[] dist = new float[1];
             Location.distanceBetween(lat, lng, loc.latitude, loc.longitude, dist);
-            boolean isCurrentlyIn = (dist[0] <= 20.0f);
-
+            
             VisitHistory lastH = db.locationDao().getLastHistory(loc.id);
+            boolean wasIn = (lastH != null && lastH.isEntry);
+            boolean isCurrentlyIn = wasIn;
+
+            // ✅ 対策2：ヒステリシス（20mでIN、50mでOUT。間は状態維持）
+            if (dist[0] <= 20.0f) {
+                isCurrentlyIn = true;
+            } else if (dist[0] > 50.0f) {
+                isCurrentlyIn = false;
+            }
+
             if (lastH == null) {
                 if (isCurrentlyIn) insertH(loc.id, today, now, true);
-            } else if (isCurrentlyIn != lastH.isEntry) {
+            } else if (isCurrentlyIn != wasIn) {
                 insertH(loc.id, today, now, isCurrentlyIn);
             }
         }
